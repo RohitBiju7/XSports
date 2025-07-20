@@ -1,3 +1,13 @@
+<?php
+session_start();
+require_once 'includes/db.php';
+
+// Fetch football products from database
+$stmt = $pdo->prepare('SELECT * FROM products WHERE category = ? ORDER BY id DESC');
+$stmt->execute(['football']);
+$products = $stmt->fetchAll();
+?>
+
 <?php include('includes/header.php'); ?>
 
 <main class="page-container">
@@ -10,19 +20,37 @@
   <!-- Featured Products -->
   <section class="products">
     <div class="product-grid">
-      <?php for ($i = 1; $i <= 14; $i++): ?>
+      <?php if (empty($products)): ?>
+        <div style="grid-column: 1 / -1; text-align: center; padding: 50px;">
+          <h3>No football products available</h3>
+          <p>Check back later for new arrivals!</p>
+        </div>
+      <?php else: ?>
+        <?php foreach ($products as $product): ?>
         <div class="product-card">
           <div style="position: relative;">
-            <img src="images/football<?= $i ?>.jpg" alt="Product <?= $i ?>">
+              <img src="<?php echo $product['image_path'] ?: 'images/football1.jpg'; ?>" alt="<?php echo htmlspecialchars($product['name']); ?>">
           </div>
-          <p style="margin: 0.3rem 0; font-size: 0.9rem; color: #888;">Brand Name</p>
-          <h3 style="margin: 0.3rem 0; font-size: 1rem; font-weight: normal;">Product <?= $i ?> Name</h3>
-          <div style="display:flex;justify-content:center;gap:8px;margin:0.3rem 0;">
-            <span style="font-weight: bold;">₹Price</span>
+            <p class="brand-name"><?php echo htmlspecialchars($product['brand']); ?></p>
+            <h3 class="product-name"><?php echo htmlspecialchars($product['name']); ?></h3>
+          <div class="price">₹<?php echo number_format($product['price'], 2); ?></div>
+            <?php if ($product['quantity'] > 0): ?>
+              <div class="product-actions">
+                <form method="post" action="add_to_cart.php">
+                  <input type="hidden" name="product_id" value="<?php echo $product['id']; ?>">
+                  <button type="submit" name="add_to_cart" class="btn-add-cart">ADD TO CART</button>
+                </form>
+                <form method="post" action="add_to_wishlist.php">
+                  <input type="hidden" name="product_id" value="<?php echo $product['id']; ?>">
+                  <button type="submit" name="add_to_wishlist" class="btn-wishlist">WISHLIST</button>
+                </form>
+              </div>
+            <?php else: ?>
+              <p style="color: red; font-weight: bold; margin-top: 0.5rem;">Out of Stock</p>
+            <?php endif; ?>
           </div>
-          <button style="margin-top: 0.5rem; background: white; border: 1px solid #005eb8; color: #005eb8; padding: 0.4rem 1rem; cursor: pointer; border-radius: 4px; font-weight: bold;">ADD TO CART</button>
-        </div>
-      <?php endfor; ?>
+        <?php endforeach; ?>
+      <?php endif; ?>
     </div>
   </section>
 

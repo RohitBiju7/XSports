@@ -1,5 +1,8 @@
 <?php
-session_start(); include('includes/header.php'); ?>
+session_start(); 
+require_once 'includes/db.php';
+include('includes/header.php'); 
+?>
 
 <main class="page-container">
   <!-- Hero Image Slider -->
@@ -49,12 +52,13 @@ session_start(); include('includes/header.php'); ?>
             <img src="images/trendpro<?= $i ?>.jpg" alt="Product <?= $i ?>">
             <div style="position:absolute;top:8px;left:8px;background:#f0c040;color:#000;padding:2px 6px;font-size:12px;border-radius:4px;">Trending</div>
           </div>
-          <p style="margin: 0.3rem 0; font-size: 0.9rem; color: #888;">Brand Name</p>
-          <h3 style="margin: 0.3rem 0; font-size: 1rem; font-weight: normal;">Product <?= $i ?> Name</h3>
-          <div style="display:flex;justify-content:center;gap:8px;margin:0.3rem 0;">
-            <span style="font-weight: bold;">₹Price</span>
+          <p class="brand-name">Brand Name</p>
+          <h3 class="product-name">Product <?= $i ?> Name</h3>
+          <div class="price">₹Price</div>
+          <div class="product-actions">
+            <button class="btn-add-cart">ADD TO CART</button>
+            <button class="btn-wishlist">WISHLIST</button>
           </div>
-          <button style="margin-top: 0.5rem; background: white; border: 1px solid #005eb8; color: #005eb8; padding: 0.4rem 1rem; cursor: pointer; border-radius: 4px; font-weight: bold;">ADD TO CART</button>
         </div>
       <?php endfor; ?>
     </div>

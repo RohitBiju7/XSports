@@ -1,0 +1,21 @@
+# Ignore images if you're uploading them through admin
+/images/products/
+/images/temp/
+/*.webp
+*.png
+*.jpg
+
+# OS stuff
+.DS_Store
+Thumbs.db
+
+# PHP and environment
+/vendor/
+/.env
+
+# Node if used for future tools
+/node_modules
+
+# Cache and logs
+*.log
+*.cache

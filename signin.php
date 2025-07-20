@@ -1,9 +1,16 @@
 <?php
-// Start the session to store user data
 session_start();
+require_once 'includes/db.php';
 
-// Placeholder for database connection
-// require_once 'includes/db_connect.php'; 
+// Redirect if already logged in
+if (isset($_SESSION['user_id']) || isset($_SESSION['admin_logged_in'])) {
+    if (isset($_SESSION['admin_logged_in'])) {
+        header('Location: index.php');
+    } else {
+        header('Location: index.php');
+    }
+    exit();
+}
 
 $login_error = '';
 $signup_error = '';
@@ -12,35 +19,70 @@ $signup_success = '';
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     // Check which form was submitted
     if (isset($_POST['form_type']) && $_POST['form_type'] == 'login') {
-        $email = $_POST['email'];
+        $email = trim($_POST['email']);
         $password = $_POST['password'];
 
-        // --- DATABASE LOGIN LOGIC ---
-        // Here you would query your database to find the user
-        // For example: $sql = "SELECT id, password_hash FROM users WHERE email = ?";
-        // If user is found and password_verify($password, $password_hash) is true:
-        // $_SESSION['user_id'] = $user_id;
-        // header("Location: index.php");
-        // exit();
-        // -----------------------------
+        if (empty($email) || empty($password)) {
+            $login_error = "Please fill in all fields.";
+        } else {
+            // First check if it's an admin login
+            $stmt = $pdo->prepare('SELECT * FROM admins WHERE email = ?');
+            $stmt->execute([$email]);
+            $admin = $stmt->fetch();
 
-        // Placeholder logic
-        if ($email === 'test@example.com' && $password === 'password') {
-            $_SESSION['user_email'] = $email;
+            if ($admin && password_verify($password, $admin['password'])) {
+                // Admin login successful
+                $_SESSION['admin_logged_in'] = true;
+                $_SESSION['admin_email'] = $admin['email'];
+                header("Location: index.php");
+                exit();
+            } else {
+                // Check if it's a regular user login
+                $stmt = $pdo->prepare('SELECT * FROM users WHERE email = ?');
+                $stmt->execute([$email]);
+                $user = $stmt->fetch();
+
+                if ($user && password_verify($password, $user['password'])) {
+                    // User login successful
+                    $_SESSION['user_id'] = $user['id'];
+                    $_SESSION['user_email'] = $user['email'];
+                    $_SESSION['user_name'] = $user['name'];
             header("Location: index.php");
             exit();
         } else {
-            $login_error = "Invalid email or password.";
+                    $login_error = "Invalid email/username or password.";
+                }
+            }
         }
 
     } elseif (isset($_POST['form_type']) && $_POST['form_type'] == 'signup') {
-        $name = $_POST['name'];
-        $email = $_POST['email'];
+        $name = trim($_POST['username']);
+        $email = trim($_POST['email']);
         $password = $_POST['password'];
-        if (!empty($name) && !empty($email) && !empty($password)) {
-            $signup_success = "Account created successfully! Please login.";
-        } else {
+
+        // Validation
+        if (empty($name) || empty($email) || empty($password)) {
             $signup_error = "Please fill in all fields.";
+        } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $signup_error = "Please enter a valid email address.";
+        } elseif (strlen($password) < 6) {
+            $signup_error = "Password must be at least 6 characters long.";
+        } else {
+            // Check if email already exists
+            $stmt = $pdo->prepare('SELECT id FROM users WHERE email = ?');
+            $stmt->execute([$email]);
+            if ($stmt->fetch()) {
+                $signup_error = "Email already registered. Please login instead.";
+            } else {
+                // Create new user
+                $hashed_password = password_hash($password, PASSWORD_DEFAULT);
+                $stmt = $pdo->prepare('INSERT INTO users (name, email, password) VALUES (?, ?, ?)');
+                if ($stmt->execute([$name, $email, $hashed_password])) {
+                    $signup_success = "Account created successfully! Please login.";
+                } else {
+                    $signup_error = "Error creating account. Please try again.";
+                }
+            }
         }
     }
 }
@@ -186,6 +228,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         margin-bottom: 1rem;
     }
 
+    .admin-note {
+        background: #f0f8ff;
+        border: 1px solid #005eb8;
+        padding: 10px;
+        border-radius: 4px;
+        margin-bottom: 1rem;
+        font-size: 0.9rem;
+    }
+
     @media (max-width: 768px) {
       .main-content {
         flex-direction: column;
@@ -215,19 +266,20 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
       <div class="form-container">
         
         <!-- Login Form -->
-        <form id="login-form" method="POST" action="login_process.php">
+        <form id="login-form" method="POST">
           <input type="hidden" name="form_type" value="login">
           <h2>Login</h2>
           <div class="tab-switch">
-            <div class="active">E-mail</div>
+            <div class="active">E-mail / Username</div>
           </div>
+
           <?php if ($login_error): ?>
-            <p class="error-message"><?php echo $login_error; ?></p>
+            <p class="error-message"><?php echo htmlspecialchars($login_error); ?></p>
           <?php endif; ?>
           <?php if ($signup_success): ?>
-            <p class="success-message"><?php echo $signup_success; ?></p>
+            <p class="success-message"><?php echo htmlspecialchars($signup_success); ?></p>
           <?php endif; ?>
-          <input type="email" name="email" placeholder="Enter your email address" required>
+          <input type="text" name="email" placeholder="Enter your email or admin username" value="<?php echo isset($_POST['email']) ? htmlspecialchars($_POST['email']) : ''; ?>" required>
           <input type="password" name="password" placeholder="Enter your password" required>
           <button type="submit">LOGIN</button>
           <div class="toggle-link">
@@ -236,55 +288,37 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         </form>
 
         <!-- Signup Form -->
-        <form id="signup-form" method="POST" action="signup_process.php" style="display: none;">
+        <form id="signup-form" method="POST" style="display: none;">
           <input type="hidden" name="form_type" value="signup">
           <h2>Let's go!</h2>
           <div class="tab-switch">
             <div class="active">E-mail</div>
           </div>
            <?php if ($signup_error): ?>
-            <p class="error-message"><?php echo $signup_error; ?></p>
+            <p class="error-message"><?php echo htmlspecialchars($signup_error); ?></p>
           <?php endif; ?>
-          <input type="text" name="username" placeholder="Enter your name" required>
-          <input type="email" name="email" placeholder="Enter your email address" required>
+          <input type="text" name="username" placeholder="Enter your name" value="<?php echo isset($_POST['username']) ? htmlspecialchars($_POST['username']) : ''; ?>" required>
+          <input type="email" name="email" placeholder="Enter your email address" value="<?php echo isset($_POST['email']) ? htmlspecialchars($_POST['email']) : ''; ?>" required>
           <input type="password" name="password" placeholder="Create a password" required>
-    <div class="form-group">
-        <input type="password" name="confirm_password" placeholder="Confirm your password" required>
-    </div>
           <button type="submit">CREATE ACCOUNT</button>
           <div class="toggle-link">
             <span>Already have an account? <a onclick="switchToLogin()">Login</a></span>
           </div>
         </form>
-
-        <ul class="info">
-          <li>✔ Exclusive Deals and Sporty Rewards</li>
-          <li>✔ Personalised Experiences</li>
-          <li>✔ Faster Checkout</li>
-          <li>✔ Easy Return/Exchange</li>
-        </ul>
       </div>
     </div>
   </div>
 
   <script>
-    const loginForm = document.getElementById('login-form');
-    const signupForm = document.getElementById('signup-form');
-
     function switchToSignup() {
-      loginForm.style.display = 'none';
-      signupForm.style.display = 'block';
+      document.getElementById('login-form').style.display = 'none';
+      document.getElementById('signup-form').style.display = 'block';
     }
 
     function switchToLogin() {
-      signupForm.style.display = 'none';
-      loginForm.style.display = 'block';
+      document.getElementById('signup-form').style.display = 'none';
+      document.getElementById('login-form').style.display = 'block';
     }
-
-    // If there was a signup error, show the signup form on page load
-    <?php if ($signup_error): ?>
-      switchToSignup();
-    <?php endif; ?>
   </script>
 </body>
 </html>
