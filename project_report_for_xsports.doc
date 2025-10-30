@@ -1,0 +1,235 @@
+XSports — Project Report
+
+Project Title: XSports — Online Sports Store
+Prepared by: XSports Development Team
+Date: October 30, 2025
+
+---------------------------------------------------------------------
+
+Abstract
+
+XSports is a lightweight PHP-based e-commerce web application focused on selling sporting goods across multiple categories (Running, Fitness, Football, Badminton, Tennis, Cycling, Swimming). This report summarizes the project objectives, technologies used, system architecture, database design, implemented features, installation steps, testing and future improvements.
+
+---------------------------------------------------------------------
+
+Table of Contents
+1. Introduction
+2. Project Objectives
+3. Scope
+4. Technologies and Tools
+5. System Architecture
+6. Database Design
+7. Features
+8. Implementation Details (key files)
+9. Installation and Setup
+10. Testing and Verification
+11. Security Considerations
+12. Limitations and Future Work
+13. Conclusion
+14. References
+15. Appendix — File List
+
+---------------------------------------------------------------------
+
+1. Introduction
+
+XSports is a web application built using PHP, MySQL and standard front-end technologies (HTML, CSS). The site provides an online storefront for sporting products with user account management, cart and wishlist, order processing, admin product management and support/ticketing features. The application is structured as a small monolithic PHP app designed to run on a typical WAMP (Windows/Apache/MySQL/PHP) stack.
+
+
+2. Project Objectives
+
+- Build a functional, searchable product catalog for sporting goods.
+- Provide user registration, authentication and a profile dashboard.
+- Implement add-to-cart, buy-now and wishlist functionality with counts displayed in the header.
+- Provide admin interfaces for product management and support ticket handling.
+- Ship with a simple, mobile-friendly front-end and a modular includes structure.
+
+
+3. Scope
+
+- User-facing product browsing and purchasing flows.
+- Basic admin features (product management, support access).
+- No external payment gateway integration in this deliverable (buy flows are simulated via server-side logic).
+- Designed for local or small VPS hosting on LAMP/WAMP stacks.
+
+
+4. Technologies and Tools
+
+- PHP (server-side scripting)
+- MySQL (database) — database name used by the project: `xsports` (see `includes/db.php`)
+- PDO for database access (`includes/db.php` uses PDO with exceptions enabled)
+- HTML5, CSS3 (`assets/style.css`) and Font Awesome icons
+- Development environment used: WAMP (Windows + Apache + MySQL + PHP)
+
+
+5. System Architecture
+
+The app follows a simple monolithic architecture. Pages are PHP scripts in the project root and share common UI pieces through `includes/header.php` and `includes/footer.php`. Database access is centralized in `includes/db.php` which configures a PDO connection to MySQL. Sessions are used for user login state and the cart/wishlist counts are fetched server-side in the header.
+
+High-level flow:
+- index.php: homepage which loads trending products and category links.
+- Product pages (product.php) and category pages display catalog and actions (add to cart, buy now, wishlist).
+- Forms on the site post to handler pages (add_to_cart.php, buy_now.php, add_to_wishlist.php, etc.).
+- Admin pages are protected via session flags (e.g., `admin_logged_in`).
+
+
+6. Database Design
+
+The project uses MySQL (schema files included in the repo: `xsports.sql`, `orders_tables.sql`, and `db_migration.sql`). The connection details are in `includes/db.php`:
+
+- Host: localhost
+- Database: xsports
+- User: root
+- Password: (empty string)
+- PDO is configured with UTF-8 and exception error mode.
+
+Primary tables expected (based on code usage):
+- `products` — holds product records with fields like id, name, brand, category, price, quantity, image_path
+- `users` — user accounts
+- `cart_items` — cart items tied to user_id
+- `wishlist` — wishlist items tied to user_id
+- `orders` / `order_items` — order records and items (see `orders_tables.sql`)
+- `support` / `tickets` — support tickets for help and admin replies
+
+Note: For exact column definitions, import `xsports.sql` and inspect the schema or open the SQL files in the repository.
+
+
+7. Features
+
+- Homepage with hero slider, category cards and trending products.
+- Product details with images, brand names, price and actions (Buy Now, Add to Cart, Wishlist).
+- Search functionality (`search.php`) supporting a text query via GET.
+- User authentication (signin.php / signup_process.php) and user dashboard (`dashboard.php`).
+- Cart management (`cart.php`, `update_cart.php`, `checkout.php`, `order_cancel.php`, `orders.php`).
+- Admin interfaces (admin.php, create_admin.php, admin_support.php, admin_ticket_chat.php) for product and support management.
+- Simple support/ticket chat functionality (`support.php`, `ticket_chat.php`).
+- Static assets and images under `assets/` and `images/`.
+
+
+8. Implementation Details (key files)
+
+Below are the important files and their responsibilities (non-exhaustive):
+
+- `includes/db.php` — Central PDO database configuration (host: localhost, dbname: xsports, user: root). Uses PDO::ERRMODE_EXCEPTION and FETCH_ASSOC.
+- `includes/header.php` — Site header, session checks and navigation (renders cart and wishlist counts and account/admin links).
+- `includes/footer.php` — Site footer (shared across pages).
+- `index.php` — Homepage. Loads trending products by category (uses RAND() in SQL), hero slider, category links.
+- `product.php` — Shows detailed product info (expects `id` GET param).
+- `add_to_cart.php`, `update_cart.php`, `checkout.php`, `buy_now.php` — Cart/checkout flows.
+- `signin.php`, `signup_process.php`, `login_process.php`, `logout.php` — Authentication flows.
+- `admin.php`, `create_admin.php`, `admin_support.php` — Admin UI and support handling.
+- SQL files: `xsports.sql`, `orders_tables.sql`, `db_migration.sql` — database schema and migration scripts.
+- `assets/style.css` — Main CSS used by pages.
+
+
+9. Installation and Setup
+
+Environment prerequisites (Windows + WAMP recommended):
+- PHP 7.4+ (or compatible PHP installed by WAMP)
+- MySQL (WAMP includes MySQL)
+- Apache (WAMP)
+
+Steps to run locally (PowerShell commands shown for convenience):
+
+1) Place the project folder under your web server root (already at c:\wamp64\www\xsports in this environment).
+
+2) Create the MySQL database and import schema. In PowerShell (assumes mysql client is in PATH):
+
+# Adjust if your MySQL root password is not empty
+mysql -u root -p -e "CREATE DATABASE IF NOT EXISTS xsports CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;"
+mysql -u root -p xsports < "c:\wamp64\www\xsports\xsports.sql"
+# Import orders and migrations if needed
+mysql -u root -p xsports < "c:\wamp64\www\xsports\orders_tables.sql"
+mysql -u root -p xsports < "c:\wamp64\www\xsports\db_migration.sql"
+
+(When prompted, enter your MySQL root password. If password is blank, press Enter.)
+
+3) Ensure `includes/db.php` connection settings match your MySQL credentials. By default the project expects `root` with blank password on `localhost`.
+
+4) Start WAMP, browse to http://localhost/xsports/ and confirm the homepage loads.
+
+5) Create an admin account using `create_admin.php` or insert into `admins` table directly.
+
+
+10. Testing and Verification
+
+Manual tests executed or recommended:
+- Homepage loads and displays trending products (index.php).
+- Login/Signup flows create user entries in `users` (verify session creation).
+- Add to cart, update cart quantities, remove items, proceed to checkout and create an order.
+- Wishlist add/remove actions reflect in `wishlist` table and header badge counts.
+- Admin login protects admin pages (admin pages should only show for admin session state).
+- Create and respond to a support ticket, verify admin support pages show the ticket and chat messages.
+
+Automated tests: None included. Recommended to add PHPUnit tests for key functions and a few integration tests for checkout flow.
+
+
+11. Security Considerations
+
+- Database queries use PDO prepared statements in most places (reduces SQL injection risk). Continue using prepared statements for all user input.
+- Ensure `includes/db.php` credentials are not world-readable on the server and configuration is environment-specific.
+- Passwords should be hashed using password_hash() — verify signup/login code uses secure hashing.
+- Session management: regenerate session IDs on login and follow secure cookie settings when deploying to HTTPS.
+- Validate and sanitize file uploads and image paths to avoid path traversal.
+
+
+12. Limitations and Future Work
+
+- Payment gateway integration (e.g., Razorpay, Stripe) is missing; add real payment flows for production.
+- Add CSRF protection tokens for state-changing POST forms.
+- Implement input validation and stronger server-side checks for all handlers.
+- Add end-to-end automated tests and CI pipeline.
+- Improve responsive UI and add more product images and descriptive content.
+- Consider modularizing code into an MVC structure or migrating to a framework (Laravel) for maintainability.
+
+
+13. Conclusion
+
+XSports is a compact, functional PHP e-commerce application suitable for local deployment or as a small production site with additional hardening. The project includes product management, cart/wishlist flows, user accounts and admin support tooling. With a few security hardenings and feature additions (payments, automated tests), the project can be production-ready.
+
+
+14. References
+
+- Project files in repository root (this report)
+- MySQL schema files: `xsports.sql`, `orders_tables.sql`, `db_migration.sql`
+- PHP PDO documentation: https://www.php.net/manual/en/book.pdo.php
+
+
+15. Appendix — File List (selected)
+
+Root files:
+- index.php — Homepage
+- product.php — Product details
+- add_to_cart.php, update_cart.php, buy_now.php — Cart/checkout flows
+- cart.php, checkout.php, orders.php — Orders management
+- signin.php, signup_process.php, login_process.php, logout.php — Authentication
+- admin.php, create_admin.php, admin_support.php — Admin tools
+- support.php, ticket_chat.php — User support
+- xsports.sql, orders_tables.sql, db_migration.sql — Database scripts
+
+Includes:
+- includes/db.php — PDO connection (MySQL, database `xsports`)
+- includes/header.php — Header and session-based nav
+- includes/footer.php — Footer
+
+Assets:
+- assets/style.css — Main stylesheet
+- images/ — Product and UI images
+
+---------------------------------------------------------------------
+
+How to get this into a Word document or PDF
+
+- The file `project_report_for_xsports.doc` created here is plain-text and can be opened with Microsoft Word; open it and save as a native Word `.docx` or export to PDF for distribution.
+- For a nicer formatted Word document, open in Word, apply headings and a table of contents, and export.
+
+
+Contact / Next steps
+
+- If you want, I can:
+  - Convert this into a properly styled `.docx` (requires a conversion step or external tool) or produce a PDF.
+  - Add screenshots from the running site into the report.
+  - Expand the Database section with exact CREATE TABLE statements by reading the SQL files and embedding them into the Appendix.
+
+
+Report generated automatically on: 2025-10-30
