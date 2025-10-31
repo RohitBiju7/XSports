@@ -55,15 +55,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['place_order'])) {
             $order_id = $pdo->lastInsertId();
 
             // Insert order items and decrement stock
-            $itemStmt = $pdo->prepare('INSERT INTO order_items (order_id, product_id, product_name, brand, price, quantity, image_path) VALUES (?, ?, ?, ?, ?, ?, ?)');
-            $decrStmt = $pdo->prepare('UPDATE products SET quantity = quantity - ? WHERE id = ? AND quantity >= ?');
+            $itemStmt = $pdo->prepare('INSERT INTO order_items (order_id, product_id, product_name, brand, price, quantity, image_path, size) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+            $decrProductStmt = $pdo->prepare('UPDATE products SET quantity = quantity - ? WHERE id = ? AND quantity >= ?');
+            $decrSizeStmt = $pdo->prepare('UPDATE product_sizes SET stock = stock - ? WHERE product_id = ? AND size = ? AND stock >= ?');
 
             foreach ($cart_items as $item) {
-                $itemStmt->execute([$order_id, $item['product_id'], $item['name'], $item['brand'], $item['price'], $item['quantity'], $item['image_path']]);
+                $sizeVal = isset($item['size']) ? $item['size'] : null;
+                $itemStmt->execute([$order_id, $item['product_id'], $item['name'], $item['brand'], $item['price'], $item['quantity'], $item['image_path'], $sizeVal]);
 
-                // Ensure enough stock; if not, rollback and show error
-                $decrStmt->execute([$item['quantity'], $item['product_id'], $item['quantity']]);
-                if ($decrStmt->rowCount() === 0) {
+                // If item has size selected, decrement size stock first
+                if ($sizeVal) {
+                    $decrSizeStmt->execute([$item['quantity'], $item['product_id'], $sizeVal, $item['quantity']]);
+                    if ($decrSizeStmt->rowCount() === 0) {
+                        $pdo->rollBack();
+                        $msg = 'Insufficient stock for one or more items (size). Please update your cart.';
+                        break;
+                    }
+                }
+
+                // Decrement overall product quantity
+                $decrProductStmt->execute([$item['quantity'], $item['product_id'], $item['quantity']]);
+                if ($decrProductStmt->rowCount() === 0) {
                     $pdo->rollBack();
                     $msg = 'Insufficient stock for one or more items. Please update your cart.';
                     break;

@@ -75,6 +75,11 @@ if (isset($_SESSION['user_id'])) {
 <i class="fa-solid fa-boxes-stacked"></i>
 <span>Product Management</span>
 </a>
+<!-- Incoming Orders for admin -->
+<a class="nav-item" href="admin_orders.php">
+        <i class="fa-solid fa-receipt"></i>
+        <span>Incoming Orders</span>
+</a>
 <?php elseif (isset($_SESSION['user_id'])): ?>
 <!-- Regular user is logged in -->
 <div class="nav-item account-wrapper">

@@ -16,6 +16,9 @@ if (isset($_GET['logout'])) {
 
 // Database connection
 require_once 'includes/db.php';
+// Database migrations have been moved to a dedicated SQL migration file:
+//   migrations/2025-10-31-add-product-sizes.sql
+// Run that migration manually (or via your deployment process) instead of using automatic migrations here.
 
 // Handle form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -26,8 +29,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $brand = $_POST['brand'];
                 $price = $_POST['price'];
                 $category = $_POST['category'];
-                $stock = $_POST['stock'];
+                $stock = isset($_POST['stock']) ? (int)$_POST['stock'] : 0;
                 $description = $_POST['description'] ?? '';
+                $has_sizes = isset($_POST['has_sizes']) ? 1 : 0;
+
+                // If sizes provided, compute total stock as sum of per-size stocks
+                $size_stock = [];
+                if ($has_sizes && isset($_POST['size_stock']) && is_array($_POST['size_stock'])) {
+                    foreach ($_POST['size_stock'] as $sz => $val) {
+                        $size_stock[$sz] = max(0, (int)$val);
+                    }
+                    $stock = array_sum($size_stock);
+                }
                 
                 // Handle single image upload
                 $upload_dir = 'images/products/';
@@ -42,8 +55,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                 }
 
-                $stmt = $pdo->prepare('INSERT INTO products (name, brand, price, category, quantity, description, image_path) VALUES (?, ?, ?, ?, ?, ?, ?)');
-                $stmt->execute([$name, $brand, $price, $category, $stock, $description, $image_path]);
+                $stmt = $pdo->prepare('INSERT INTO products (name, brand, price, category, quantity, description, image_path, has_sizes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+                $stmt->execute([$name, $brand, $price, $category, $stock, $description, $image_path, $has_sizes]);
+                $newProductId = $pdo->lastInsertId();
+
+                // Insert per-size stocks if applicable
+                if ($has_sizes && !empty($size_stock)) {
+                    $insertSize = $pdo->prepare('INSERT INTO product_sizes (product_id, size, stock) VALUES (?, ?, ?)');
+                    foreach ($size_stock as $sz => $val) {
+                        if ($val > 0) {
+                            $insertSize->execute([$newProductId, $sz, $val]);
+                        }
+                    }
+                }
                 break;
                 
             case 'edit':
@@ -52,11 +76,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $brand = $_POST['brand'];
                 $price = $_POST['price'];
                 $category = $_POST['category'];
-                $stock = $_POST['stock'];
+                $stock = isset($_POST['stock']) ? (int)$_POST['stock'] : 0;
                 $description = $_POST['description'] ?? '';
-                
-                $stmt = $pdo->prepare('UPDATE products SET name = ?, brand = ?, price = ?, category = ?, quantity = ?, description = ? WHERE id = ?');
-                $stmt->execute([$name, $brand, $price, $category, $stock, $description, $id]);
+                $has_sizes = isset($_POST['has_sizes']) ? 1 : 0;
+
+                // collect size stocks if provided
+                $size_stock = [];
+                if ($has_sizes && isset($_POST['size_stock']) && is_array($_POST['size_stock'])) {
+                    foreach ($_POST['size_stock'] as $sz => $val) {
+                        $size_stock[$sz] = max(0, (int)$val);
+                    }
+                    // override total stock with sum
+                    $stock = array_sum($size_stock);
+                }
+
+                $stmt = $pdo->prepare('UPDATE products SET name = ?, brand = ?, price = ?, category = ?, quantity = ?, description = ?, has_sizes = ? WHERE id = ?');
+                $stmt->execute([$name, $brand, $price, $category, $stock, $description, $has_sizes, $id]);
+
+                // remove existing size rows and insert new ones
+                $pdo->prepare('DELETE FROM product_sizes WHERE product_id = ?')->execute([$id]);
+                if ($has_sizes && !empty($size_stock)) {
+                    $insertSize = $pdo->prepare('INSERT INTO product_sizes (product_id, size, stock) VALUES (?, ?, ?)');
+                    foreach ($size_stock as $sz => $val) {
+                        if ($val > 0) {
+                            $insertSize->execute([$id, $sz, $val]);
+                        }
+                    }
+                }
 
                 // Optional single image upload on edit
                 $upload_dir = 'images/products/';
@@ -496,6 +542,23 @@ $products = $stmt->fetchAll();
                         <label for="stock">Stock Quantity *</label>
                         <input type="number" id="stock" name="stock" min="0" required>
                     </div>
+
+                    <div class="form-group">
+                        <label><input type="checkbox" id="has_sizes" name="has_sizes" value="1"> Has sizes (shoe)</label>
+                        <div id="sizeInputs" style="margin-top:12px; display:none; border:1px dashed #e9ecef; padding:12px; border-radius:8px;">
+                            <p style="margin:0 0 8px 0; font-weight:600;">Enter stock per size:</p>
+                            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
+                                <?php $shoe_sizes = ['6','6.5','7','7.5','8','8.5','9','9.5','10'];
+                                foreach ($shoe_sizes as $s): ?>
+                                    <div>
+                                        <label style="display:block;font-size:13px;margin-bottom:6px;"><?php echo $s; ?></label>
+                                        <input type="number" name="size_stock[<?php echo $s; ?>]" min="0" value="0" style="width:100%; padding:8px; border:1px solid #e9ecef; border-radius:6px;">
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                            <p style="margin-top:10px;font-size:13px;color:#666;">When sizes are checked, the total stock will be the sum of per-size stocks and will override the Stock Quantity field.</p>
+                        </div>
+                    </div>
                     
                     <div class="form-group">
                         <label for="description">Description</label>
@@ -570,9 +633,16 @@ $products = $stmt->fetchAll();
                                         </td>
                                         <td>
                                             <div class="action-buttons">
-                                                                        <button class="btn-edit" onclick="editProduct(<?php echo $product['id']; ?>, '<?php echo addslashes($product['name']); ?>', '<?php echo addslashes($product['brand']); ?>', '<?php echo $product['price']; ?>', '<?php echo addslashes($product['category']); ?>', '<?php echo $product['quantity']; ?>', '<?php echo addslashes($product['description'] ?? ''); ?>')">
-                            <i class="fa-solid fa-edit"></i> Edit
-                        </button>
+                                                <?php
+                                                // fetch sizes for this product to pass to edit modal
+                                                $sizeRows = $pdo->prepare('SELECT size, stock FROM product_sizes WHERE product_id = ?');
+                                                $sizeRows->execute([$product['id']]);
+                                                $sizesArr = $sizeRows->fetchAll();
+                                                $sizesJson = htmlspecialchars(json_encode($sizesArr), ENT_QUOTES);
+                                                ?>
+                                                <button class="btn-edit" onclick="editProduct(<?php echo $product['id']; ?>, '<?php echo addslashes($product['name']); ?>', '<?php echo addslashes($product['brand']); ?>', '<?php echo $product['price']; ?>', '<?php echo addslashes($product['category']); ?>', '<?php echo $product['quantity']; ?>', '<?php echo addslashes($product['description'] ?? ''); ?>', '<?php echo $sizesJson; ?>')">
+                                                    <i class="fa-solid fa-edit"></i> Edit
+                                                </button>
                                                 <button class="btn-delete" onclick="deleteProduct(<?php echo $product['id']; ?>, '<?php echo htmlspecialchars($product['name']); ?>')">
                                                     <i class="fa-solid fa-trash"></i> Delete
                                                 </button>
@@ -636,6 +706,22 @@ $products = $stmt->fetchAll();
                     <label for="edit_stock">Stock Quantity *</label>
                     <input type="number" id="edit_stock" name="stock" min="0" required>
                 </div>
+
+                <div class="form-group">
+                    <label><input type="checkbox" id="edit_has_sizes" name="has_sizes" value="1"> Has sizes (shoe)</label>
+                    <div id="editSizeInputs" style="margin-top:12px; display:none; border:1px dashed #e9ecef; padding:12px; border-radius:8px;">
+                        <p style="margin:0 0 8px 0; font-weight:600;">Enter stock per size:</p>
+                        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
+                            <?php foreach ($shoe_sizes as $s): ?>
+                                <div>
+                                    <label style="display:block;font-size:13px;margin-bottom:6px;"><?php echo $s; ?></label>
+                                    <input type="number" id="edit_size_<?php echo str_replace('.','_',$s); ?>" name="size_stock[<?php echo $s; ?>]" min="0" value="0" style="width:100%; padding:8px; border:1px solid #e9ecef; border-radius:6px;">
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                        <p style="margin-top:10px;font-size:13px;color:#666;">When sizes are used, total stock will be the sum of sizes and will override Stock Quantity.</p>
+                    </div>
+                </div>
                 
                 <div class="form-group">
                     <label for="edit_description">Description</label>
@@ -684,7 +770,7 @@ $products = $stmt->fetchAll();
     
     <script>
         // Edit product function
-        function editProduct(id, name, brand, price, category, quantity, description) {
+        function editProduct(id, name, brand, price, category, quantity, description, sizesJson) {
             document.getElementById('edit_id').value = id;
             document.getElementById('edit_name').value = name;
             document.getElementById('edit_brand').value = brand;
@@ -692,6 +778,30 @@ $products = $stmt->fetchAll();
             document.getElementById('edit_category').value = category;
             document.getElementById('edit_stock').value = quantity;
             document.getElementById('edit_description').value = description;
+
+            // reset size inputs
+            document.getElementById('edit_has_sizes').checked = false;
+            document.getElementById('editSizeInputs').style.display = 'none';
+            <?php foreach ($shoe_sizes as $s): ?>
+                document.getElementById('edit_size_<?php echo str_replace('.','_',$s); ?>').value = 0;
+            <?php endforeach; ?>
+
+            // populate sizes if provided
+            if (sizesJson) {
+                try {
+                    var sizes = JSON.parse(sizesJson);
+                    if (sizes && sizes.length > 0) {
+                        document.getElementById('edit_has_sizes').checked = true;
+                        document.getElementById('editSizeInputs').style.display = 'block';
+                        sizes.forEach(function(r){
+                            var id = r.size.toString().replace('.','_');
+                            var el = document.getElementById('edit_size_' + id);
+                            if (el) el.value = r.stock;
+                        });
+                    }
+                } catch(e) { /* ignore parse errors */ }
+            }
+
             document.getElementById('editModal').style.display = 'block';
         }
         
@@ -722,6 +832,16 @@ $products = $stmt->fetchAll();
                 closeDeleteModal();
             }
         }
+        
+        // show/hide size inputs on add form
+        document.getElementById('has_sizes').addEventListener('change', function(){
+            document.getElementById('sizeInputs').style.display = this.checked ? 'block' : 'none';
+        });
+
+        // show/hide size inputs on edit form
+        document.getElementById('edit_has_sizes').addEventListener('change', function(){
+            document.getElementById('editSizeInputs').style.display = this.checked ? 'block' : 'none';
+        });
     </script>
 </body>
 </html> 

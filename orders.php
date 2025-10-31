@@ -47,6 +47,9 @@ $orders = $stmt->fetchAll();
     <?php if (isset($_GET['placed'])): ?>
         <p style="color: #188038;">Your order has been placed successfully.</p>
     <?php endif; ?>
+    <?php if (isset($_GET['cannot_cancel'])): ?>
+        <p style="color: #b26a00;">This order has already been confirmed by admin and cannot be cancelled.</p>
+    <?php endif; ?>
 
     <?php if (empty($orders)): ?>
         <div class="empty">
@@ -74,10 +77,14 @@ $orders = $stmt->fetchAll();
                         <div class="order-summary">Total: ₹<?php echo number_format($order['total'], 2); ?> (Subtotal ₹<?php echo number_format($order['subtotal'], 2); ?> • Shipping ₹<?php echo number_format($order['shipping'], 2); ?> • Tax ₹<?php echo number_format($order['tax'], 2); ?>)</div>
                     <a href="javascript:void(0)" onclick="toggleItems(<?php echo $order['id']; ?>)">View items</a>
                     <?php if ($order['status'] !== 'cancelled'): ?>
-                        <form method="post" action="order_cancel.php" style="display:inline-block;margin-left:10px;">
-                            <input type="hidden" name="order_id" value="<?php echo (int)$order['id']; ?>">
-                            <button type="submit" class="btn" style="background:#c62828">Cancel order</button>
-                        </form>
+                        <?php if (!(isset($order['admin_confirmed']) && (int)$order['admin_confirmed'] === 1)): ?>
+                            <form method="post" action="order_cancel.php" style="display:inline-block;margin-left:10px;">
+                                <input type="hidden" name="order_id" value="<?php echo (int)$order['id']; ?>">
+                                <button type="submit" class="btn" style="background:#c62828">Cancel order</button>
+                            </form>
+                        <?php else: ?>
+                            <span style="margin-left:10px;color:#b26a00;">Admin confirmed — cannot cancel</span>
+                        <?php endif; ?>
                     <?php else: ?>
                         <form method="post" action="order_delete.php" style="display:inline-block;margin-left:10px;">
                             <input type="hidden" name="order_id" value="<?php echo (int)$order['id']; ?>">

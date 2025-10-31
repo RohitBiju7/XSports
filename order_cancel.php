@@ -34,14 +34,29 @@ try {
         exit;
     }
 
+    // Prevent user cancellation if admin has already confirmed the order
+    if (isset($order['admin_confirmed']) && (int)$order['admin_confirmed'] === 1) {
+        // Admin confirmed — user cannot cancel
+        $pdo->rollBack();
+        header('Location: orders.php?cannot_cancel=1');
+        exit;
+    }
+
     // Restore stock for each item
     $itemsStmt = $pdo->prepare('SELECT product_id, quantity FROM order_items WHERE order_id = ?');
     $itemsStmt->execute([$order_id]);
     $items = $itemsStmt->fetchAll();
-
     $incrStmt = $pdo->prepare('UPDATE products SET quantity = quantity + ? WHERE id = ?');
+    $incrSizeStmt = $pdo->prepare('UPDATE product_sizes SET stock = stock + ? WHERE product_id = ? AND size = ?');
+    $itemWithSizeStmt = $pdo->prepare('SELECT size FROM order_items WHERE order_id = ? AND product_id = ? LIMIT 1');
     foreach ($items as $it) {
         $incrStmt->execute([$it['quantity'], $it['product_id']]);
+        // Try to restore size-specific stock if size column exists and value present
+        $itemWithSizeStmt->execute([$order_id, $it['product_id']]);
+        $row = $itemWithSizeStmt->fetch();
+        if ($row && !empty($row['size'])) {
+            $incrSizeStmt->execute([$it['quantity'], $it['product_id'], $row['size']]);
+        }
     }
 
     // Mark order cancelled

@@ -130,18 +130,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Update quantity
     if (isset($_POST['update_quantity'])) {
         $product_id = $_POST['product_id'];
+        $size = isset($_POST['size']) ? trim($_POST['size']) : null;
         $quantity = max(1, intval($_POST['quantity'])); // Ensure quantity is at least 1
-        
-        $stmt = $pdo->prepare('UPDATE cart_items SET quantity = ? WHERE user_id = ? AND product_id = ?');
-        $stmt->execute([$quantity, $user_id, $product_id]);
+
+        if ($size !== null && $size !== '') {
+            $stmt = $pdo->prepare('UPDATE cart_items SET quantity = ? WHERE user_id = ? AND product_id = ? AND size = ?');
+            $stmt->execute([$quantity, $user_id, $product_id, $size]);
+        } else {
+            $stmt = $pdo->prepare('UPDATE cart_items SET quantity = ? WHERE user_id = ? AND product_id = ? AND size IS NULL');
+            $stmt->execute([$quantity, $user_id, $product_id]);
+        }
         $msg = 'Cart updated!';
     }
-    
+
     // Remove item
     if (isset($_POST['remove_item'])) {
         $product_id = $_POST['product_id'];
-        $stmt = $pdo->prepare('DELETE FROM cart_items WHERE user_id = ? AND product_id = ?');
-        $stmt->execute([$user_id, $product_id]);
+        $size = isset($_POST['size']) ? trim($_POST['size']) : null;
+        if ($size !== null && $size !== '') {
+            $stmt = $pdo->prepare('DELETE FROM cart_items WHERE user_id = ? AND product_id = ? AND size = ?');
+            $stmt->execute([$user_id, $product_id, $size]);
+        } else {
+            $stmt = $pdo->prepare('DELETE FROM cart_items WHERE user_id = ? AND product_id = ? AND size IS NULL');
+            $stmt->execute([$user_id, $product_id]);
+        }
         $msg = 'Item removed from cart!';
     }
 }
@@ -351,17 +363,26 @@ foreach ($cart_items as $item) {
                         <div class="cart-item-details">
                             <h3><a href="product.php?id=<?php echo $item['product_id']; ?>"><?php echo htmlspecialchars($item['name']); ?></a></h3>
                             <p><strong>Brand:</strong> <?php echo htmlspecialchars($item['brand']); ?></p>
-                            <p><strong>Price:</strong> ₹<?php echo number_format($item['price'], 2); ?></p>
+                                        <p><strong>Price:</strong> ₹<?php echo number_format($item['price'], 2); ?></p>
+                                        <?php if (!empty($item['size'])): ?>
+                                            <p><strong>Size:</strong> <?php echo htmlspecialchars($item['size']); ?></p>
+                                        <?php endif; ?>
                             <p><strong>Subtotal:</strong> ₹<?php echo number_format($item['price'] * $item['quantity'], 2); ?></p>
                         </div>
                         <div class="cart-item-actions">
                             <form method="post" style="display: inline-flex; align-items: center; gap: 10px;">
                                 <input type="hidden" name="product_id" value="<?php echo $item['product_id']; ?>">
+                                <?php if (!empty($item['size'])): ?>
+                                    <input type="hidden" name="size" value="<?php echo htmlspecialchars($item['size']); ?>">
+                                <?php endif; ?>
                                 <label>Qty: <input type="number" name="quantity" value="<?php echo $item['quantity']; ?>" min="1" class="quantity-input"></label>
                                 <button type="submit" name="update_quantity" class="update-btn">Update</button>
                             </form>
                             <form method="post" style="display: inline;">
                                 <input type="hidden" name="product_id" value="<?php echo $item['product_id']; ?>">
+                                <?php if (!empty($item['size'])): ?>
+                                    <input type="hidden" name="size" value="<?php echo htmlspecialchars($item['size']); ?>">
+                                <?php endif; ?>
                                 <button type="submit" name="remove_item" class="remove-btn" onclick="return confirm('Are you sure you want to remove this item?');">Remove</button>
                             </form>
                         </div>
