@@ -100,7 +100,7 @@ include('includes/header.php');
               <?php if ($product['quantity'] > 0): ?>
                 <form method="post" action="buy_now.php" style="display: inline;">
                   <input type="hidden" name="product_id" value="<?php echo $product['id']; ?>">
-                  <button type="submit" name="buy_now" class="btn-buy-now" style="background: #005eb8 !important; color: white !important; border: 2px solid #005eb8 !important; padding: 12px 16px !important; border-radius: 8px !important; cursor: pointer; font-weight: 600; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.5px; width: 100%; min-height: 44px !important; box-sizing: border-box; margin-top: 0 !important; transition: all 0.3s ease;" onmouseover="this.style.background='#004a94'; this.style.transform='translateY(-3px) scale(1.02)'; this.style.boxShadow='0 6px 20px rgba(0, 94, 184, 0.4)'" onmouseout="this.style.background='#005eb8'; this.style.transform='translateY(0) scale(1)'; this.style.boxShadow='none'">BUY NOW</button>
+                  <button type="submit" name="buy_now" class="btn-buy-now" style="background: #005eb8 !important; color: white !important; border: 2px solid #005eb8 !important; padding: 12px 16px !important; border-radius: 8px !important; cursor: pointer; font-weight: 600; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.5px; width: 100%; min-height: 44px !important; box-sizing: border-box; margin-top: 0 !important; transition: all 0.3s ease;">BUY NOW</button>
                 </form>
                 <form method="post" action="add_to_cart.php" style="display: inline;">
                   <input type="hidden" name="product_id" value="<?php echo $product['id']; ?>">
