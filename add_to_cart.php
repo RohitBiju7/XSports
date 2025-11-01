@@ -37,8 +37,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['product_id'])) {
             }
         }
         // Check if already in cart
-        $stmt = $pdo->prepare('SELECT * FROM cart_items WHERE user_id = ? AND product_id = ? AND (size = ? OR (? IS NULL AND size IS NULL))');
-        $stmt->execute([$user_id, $product_id, $selected_size, $selected_size]);
+        if ($selected_size !== null && $selected_size !== '') {
+            $stmt = $pdo->prepare('SELECT * FROM cart_items WHERE user_id = ? AND product_id = ? AND size = ?');
+            $stmt->execute([$user_id, $product_id, $selected_size]);
+        } else {
+            // match rows where size is NULL or empty string
+            $stmt = $pdo->prepare('SELECT * FROM cart_items WHERE user_id = ? AND product_id = ? AND (size IS NULL OR size = \'\')');
+            $stmt->execute([$user_id, $product_id]);
+        }
         $existing = $stmt->fetch();
         
         if ($existing) {

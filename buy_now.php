@@ -37,24 +37,73 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['product_id'])) {
         }
         try {
             $pdo->beginTransaction();
-            
-            // Clear existing cart items
-            $stmt = $pdo->prepare('DELETE FROM cart_items WHERE user_id = ?');
-            $stmt->execute([$user_id]);
-            
-            // Add the selected product to cart with quantity 1 (include size if any)
+
+            // Do not clear the cart. Instead add/update the selected product (respecting size if any)
             if (!empty($product['has_sizes'])) {
-                $stmt = $pdo->prepare('INSERT INTO cart_items (user_id, product_id, quantity, size) VALUES (?, ?, 1, ?)');
-                $stmt->execute([$user_id, $product_id, $selected_size]);
+                // check for existing cart row with same size
+                $check = $pdo->prepare('SELECT * FROM cart_items WHERE user_id = ? AND product_id = ? AND size = ?');
+                $check->execute([$user_id, $product_id, $selected_size]);
+                $existing = $check->fetch();
+
+                // ensure we have latest stock for this size
+                $sStmt = $pdo->prepare('SELECT stock FROM product_sizes WHERE product_id = ? AND size = ?');
+                $sStmt->execute([$product_id, $selected_size]);
+                $sizeRow = $sStmt->fetch();
+                $available = $sizeRow ? (int)$sizeRow['stock'] : 0;
+
+                if ($existing) {
+                    $newQty = (int)$existing['quantity'] + 1;
+                    if ($newQty > $available) {
+                        $pdo->rollBack();
+                        $redirect_url = isset($_SERVER['HTTP_REFERER']) ? $_SERVER['HTTP_REFERER'] : 'index.php';
+                        header('Location: ' . $redirect_url . '?error=insufficient_size_stock');
+                        exit;
+                    }
+                    $upd = $pdo->prepare('UPDATE cart_items SET quantity = quantity + 1 WHERE user_id = ? AND product_id = ? AND size = ?');
+                    $upd->execute([$user_id, $product_id, $selected_size]);
+                } else {
+                    if ($available <= 0) {
+                        $pdo->rollBack();
+                        $redirect_url = isset($_SERVER['HTTP_REFERER']) ? $_SERVER['HTTP_REFERER'] : 'index.php';
+                        header('Location: ' . $redirect_url . '?error=out_of_stock_size');
+                        exit;
+                    }
+                    $ins = $pdo->prepare('INSERT INTO cart_items (user_id, product_id, quantity, size) VALUES (?, ?, 1, ?)');
+                    $ins->execute([$user_id, $product_id, $selected_size]);
+                }
             } else {
-                $stmt = $pdo->prepare('INSERT INTO cart_items (user_id, product_id, quantity) VALUES (?, ?, 1)');
-                $stmt->execute([$user_id, $product_id]);
+                // product without sizes
+                $check = $pdo->prepare('SELECT * FROM cart_items WHERE user_id = ? AND product_id = ? AND (size IS NULL OR size = "")');
+                $check->execute([$user_id, $product_id]);
+                $existing = $check->fetch();
+
+                $pQty = (int)$product['quantity'];
+                if ($existing) {
+                    $newQty = (int)$existing['quantity'] + 1;
+                    if ($newQty > $pQty) {
+                        $pdo->rollBack();
+                        $redirect_url = isset($_SERVER['HTTP_REFERER']) ? $_SERVER['HTTP_REFERER'] : 'index.php';
+                        header('Location: ' . $redirect_url . '?error=insufficient_stock');
+                        exit;
+                    }
+                    $upd = $pdo->prepare('UPDATE cart_items SET quantity = quantity + 1 WHERE user_id = ? AND product_id = ? AND (size IS NULL OR size = "")');
+                    $upd->execute([$user_id, $product_id]);
+                } else {
+                    if ($pQty <= 0) {
+                        $pdo->rollBack();
+                        $redirect_url = isset($_SERVER['HTTP_REFERER']) ? $_SERVER['HTTP_REFERER'] : 'index.php';
+                        header('Location: ' . $redirect_url . '?error=out_of_stock');
+                        exit;
+                    }
+                    $ins = $pdo->prepare('INSERT INTO cart_items (user_id, product_id, quantity) VALUES (?, ?, 1)');
+                    $ins->execute([$user_id, $product_id]);
+                }
             }
-            
+
             $pdo->commit();
-            
-            // Redirect to checkout page
-            header('Location: checkout.php');
+
+            // Redirect to cart page
+            header('Location: cart.php');
             exit;
             
         } catch (PDOException $e) {

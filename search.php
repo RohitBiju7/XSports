@@ -11,6 +11,16 @@ $total_results = 0;
 $stmt_categories = $pdo->query('SELECT DISTINCT category FROM products ORDER BY category ASC');
 $categories = $stmt_categories->fetchAll(PDO::FETCH_COLUMN);
 
+// Get global min and max price for products to initialize price filter
+$minMaxStmt = $pdo->query('SELECT MIN(price) AS min_price, MAX(price) AS max_price FROM products');
+$minMax = $minMaxStmt->fetch(PDO::FETCH_ASSOC);
+$global_min_price = $minMax['min_price'] !== null ? (float)$minMax['min_price'] : 0.0;
+$global_max_price = $minMax['max_price'] !== null ? (float)$minMax['max_price'] : 100000.0;
+
+// read requested price filters from GET
+$req_min_price = isset($_GET['min_price']) && $_GET['min_price'] !== '' ? (float)$_GET['min_price'] : $global_min_price;
+$req_max_price = isset($_GET['max_price']) && $_GET['max_price'] !== '' ? (float)$_GET['max_price'] : $global_max_price;
+
 if (!empty($search_query) || !empty($selected_category)) {
     // Build the query based on search and/or category filter
     $sql = 'SELECT * FROM products WHERE 1=1';
@@ -26,6 +36,16 @@ if (!empty($search_query) || !empty($selected_category)) {
     if (!empty($selected_category)) {
         $sql .= ' AND category = ?';
         $params[] = $selected_category;
+    }
+
+    // Price filtering
+    if (isset($_GET['min_price']) && $_GET['min_price'] !== '') {
+        $sql .= ' AND price >= ?';
+        $params[] = (float)$_GET['min_price'];
+    }
+    if (isset($_GET['max_price']) && $_GET['max_price'] !== '') {
+        $sql .= ' AND price <= ?';
+        $params[] = (float)$_GET['max_price'];
     }
     
     $sql .= ' ORDER BY name ASC';
@@ -353,8 +373,25 @@ if (!empty($search_query) || !empty($selected_category)) {
         
         <!-- Search Form -->
         <form class="search-form" method="get">
+            <!-- preserve selected category when submitting -->
+            <input type="hidden" name="category" value="<?php echo htmlspecialchars($selected_category); ?>">
             <div class="search-input">
                 <input type="text" name="q" placeholder="Search for products, brands, or categories..." value="<?php echo htmlspecialchars($search_query); ?>">
+            </div>
+            <!-- Price filter -->
+            <div style="min-width:260px;">
+                <div style="padding:8px 12px;border-radius:8px;border:1px solid #eee;background:#fff;">
+                    <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Price</label>
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <input id="minPriceInput" name="min_price" type="number" step="0.01" min="0" value="<?php echo htmlspecialchars(number_format($req_min_price, 2, '.', '')); ?>" style="width:80px;padding:6px;border:1px solid #ddd;border-radius:4px;">
+                        <span style="color:#666;">To</span>
+                        <input id="maxPriceInput" name="max_price" type="number" step="0.01" min="0" value="<?php echo htmlspecialchars(number_format($req_max_price, 2, '.', '')); ?>" style="width:110px;padding:6px;border:1px solid #ddd;border-radius:4px;">
+                    </div>
+                    <div style="margin-top:10px;">
+                        <input id="minRange" type="range" min="<?php echo htmlspecialchars($global_min_price); ?>" max="<?php echo htmlspecialchars($global_max_price); ?>" value="<?php echo htmlspecialchars($req_min_price); ?>" style="width:100%;">
+                        <input id="maxRange" type="range" min="<?php echo htmlspecialchars($global_min_price); ?>" max="<?php echo htmlspecialchars($global_max_price); ?>" value="<?php echo htmlspecialchars($req_max_price); ?>" style="width:100%;margin-top:6px;">
+                    </div>
+                </div>
             </div>
             <button type="submit">Search</button>
             <?php if (!empty($search_query) || !empty($selected_category)): ?>
@@ -363,15 +400,23 @@ if (!empty($search_query) || !empty($selected_category)) {
         </form>
         
         <!-- Category Filters -->
-        <div class="category-filters">
+            <div class="category-filters">
             <div class="category-filter-label">Filter by Category:</div>
-            <a href="search.php?q=<?php echo urlencode($search_query); ?>&category=Running" class="category-filter-btn <?php echo $selected_category == 'Running' ? 'active' : ''; ?>">Running</a>
-            <a href="search.php?q=<?php echo urlencode($search_query); ?>&category=Fitness" class="category-filter-btn <?php echo $selected_category == 'Fitness' ? 'active' : ''; ?>">Fitness</a>
-            <a href="search.php?q=<?php echo urlencode($search_query); ?>&category=Football" class="category-filter-btn <?php echo $selected_category == 'Football' ? 'active' : ''; ?>">Football</a>
-            <a href="search.php?q=<?php echo urlencode($search_query); ?>&category=Badminton" class="category-filter-btn <?php echo $selected_category == 'Badminton' ? 'active' : ''; ?>">Badminton</a>
-            <a href="search.php?q=<?php echo urlencode($search_query); ?>&category=Tennis" class="category-filter-btn <?php echo $selected_category == 'Tennis' ? 'active' : ''; ?>">Tennis</a>
-            <a href="search.php?q=<?php echo urlencode($search_query); ?>&category=Cycling" class="category-filter-btn <?php echo $selected_category == 'Cycling' ? 'active' : ''; ?>">Cycling</a>
-            <a href="search.php?q=<?php echo urlencode($search_query); ?>&category=Swimming" class="category-filter-btn <?php echo $selected_category == 'Swimming' ? 'active' : ''; ?>">Swimming</a>
+            <?php
+                $qp = urlencode($search_query);
+                $minp = urlencode($req_min_price);
+                $maxp = urlencode($req_max_price);
+                function cat_link($q, $cat, $sel, $minp, $maxp) {
+                    return "search.php?q={$q}&category=" . urlencode($cat) . "&min_price={$minp}&max_price={$maxp}";
+                }
+            ?>
+            <a href="<?php echo cat_link($qp, 'Running', $selected_category, $minp, $maxp); ?>" class="category-filter-btn <?php echo $selected_category == 'Running' ? 'active' : ''; ?>">Running</a>
+            <a href="<?php echo cat_link($qp, 'Fitness & Clothing', $selected_category, $minp, $maxp); ?>" class="category-filter-btn <?php echo $selected_category == 'Fitness & Clothing' ? 'active' : ''; ?>">Fitness &amp; Clothing</a>
+            <a href="<?php echo cat_link($qp, 'Football', $selected_category, $minp, $maxp); ?>" class="category-filter-btn <?php echo $selected_category == 'Football' ? 'active' : ''; ?>">Football</a>
+            <a href="<?php echo cat_link($qp, 'Badminton', $selected_category, $minp, $maxp); ?>" class="category-filter-btn <?php echo $selected_category == 'Badminton' ? 'active' : ''; ?>">Badminton</a>
+            <a href="<?php echo cat_link($qp, 'Tennis', $selected_category, $minp, $maxp); ?>" class="category-filter-btn <?php echo $selected_category == 'Tennis' ? 'active' : ''; ?>">Tennis</a>
+            <a href="<?php echo cat_link($qp, 'Cycling', $selected_category, $minp, $maxp); ?>" class="category-filter-btn <?php echo $selected_category == 'Cycling' ? 'active' : ''; ?>">Cycling</a>
+            <a href="<?php echo cat_link($qp, 'Swimming', $selected_category, $minp, $maxp); ?>" class="category-filter-btn <?php echo $selected_category == 'Swimming' ? 'active' : ''; ?>">Swimming</a>
         </div>
         
         <!-- Search Results -->
@@ -438,6 +483,62 @@ if (!empty($search_query) || !empty($selected_category)) {
         <?php endif; ?>
     </div>
     
+    <script>
+    // Global price range sync script (always included so sliders work even when no results)
+    (function(){
+        function initPriceSync(){
+            var minRange = document.getElementById('minRange');
+            var maxRange = document.getElementById('maxRange');
+            var minInput = document.getElementById('minPriceInput');
+            var maxInput = document.getElementById('maxPriceInput');
+            if (!minRange || !maxRange || !minInput || !maxInput) return;
+
+            function sanitize(val){ var n = parseFloat(val); return isNaN(n) ? 0 : n; }
+
+            function syncFromRanges(){
+                var minV = sanitize(minRange.value);
+                var maxV = sanitize(maxRange.value);
+                if (minV > maxV) { var t = minV; minV = maxV; maxV = t; }
+                minInput.value = minV.toFixed(2);
+                maxInput.value = maxV.toFixed(2);
+            }
+
+            function syncFromInputs(){
+                var minV = sanitize(minInput.value);
+                var maxV = sanitize(maxInput.value);
+                if (minV > maxV) { var t = minV; minV = maxV; maxV = t; }
+                // clamp to ranges
+                var lo = sanitize(minRange.min);
+                var hi = sanitize(minRange.max);
+                if (minV < lo) minV = lo; if (maxV > hi) maxV = hi;
+                minRange.value = minV;
+                maxRange.value = maxV;
+                minInput.value = minV.toFixed(2);
+                maxInput.value = maxV.toFixed(2);
+            }
+
+            // attach listeners if not already
+            if (!minRange._priceSyncAttached) {
+                minRange.addEventListener('input', syncFromRanges);
+                maxRange.addEventListener('input', syncFromRanges);
+                minInput.addEventListener('change', syncFromInputs);
+                maxInput.addEventListener('change', syncFromInputs);
+                minRange._priceSyncAttached = true;
+            }
+
+            // initialize display
+            syncFromRanges();
+        }
+
+        // Run on DOMContentLoaded and also attempt to init immediately in case elements are already present
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initPriceSync);
+        } else {
+            initPriceSync();
+        }
+    })();
+    </script>
+
     <?php include 'includes/footer.php'; ?>
 </body>
 </html>

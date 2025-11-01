@@ -106,19 +106,22 @@ $messages = $stmt->fetchAll();
         
         .back-button {
             position: absolute;
-            top: 30px;
-            left: 30px;
-            background: rgba(255, 255, 255, 0.2);
+            left: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(255, 255, 255, 0.18);
             color: white;
             border: none;
-            padding: 10px 20px;
+            padding: 8px 12px;
             border-radius: 8px;
             cursor: pointer;
-            transition: all 0.3s ease;
+            transition: all 0.2s ease;
             text-decoration: none;
-            display: flex;
+            display: inline-flex;
             align-items: center;
             gap: 8px;
+            z-index: 5;
+            font-size: 0.95rem;
         }
         
         .back-button:hover {
@@ -422,6 +425,7 @@ $messages = $stmt->fetchAll();
                 position: static;
                 margin-bottom: 20px;
                 width: fit-content;
+                transform: none;
             }
             
             .ticket-info-header,

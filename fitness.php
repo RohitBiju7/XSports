@@ -2,9 +2,9 @@
 session_start();
 require_once 'includes/db.php';
 
-// Fetch fitness products from database
+// Fetch fitness & clothing products from database
 $stmt = $pdo->prepare('SELECT * FROM products WHERE category = ? ORDER BY id DESC');
-$stmt->execute(['fitness']);
+$stmt->execute(['Fitness & Clothing']);
 $products = $stmt->fetchAll();
 ?>
 
@@ -32,7 +32,7 @@ $products = $stmt->fetchAll();
     <div class="product-grid">
       <?php if (empty($products)): ?>
         <div style="grid-column: 1 / -1; text-align: center; padding: 50px;">
-          <h3>No fitness products available</h3>
+          <h3>No fitness &amp; clothing products available</h3>
           <p>Check back later for new arrivals!</p>
         </div>
       <?php else: ?>

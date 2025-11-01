@@ -144,17 +144,53 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['place_order'])) {
                         <!-- Cart Items -->
                         <div class="checkout-section">
                             <h3>Order Items</h3>
-                            <?php foreach ($cart_items as $item): ?>
-                                <div class="cart-item">
-                                    <img src="<?php echo $item['image_path'] ?: 'images/placeholder.jpg'; ?>" alt="<?php echo htmlspecialchars($item['name']); ?>">
-                                    <div class="cart-item-details">
-                                        <h4><?php echo htmlspecialchars($item['name']); ?></h4>
-                                        <p><strong>Brand:</strong> <?php echo htmlspecialchars($item['brand']); ?></p>
-                                        <p><strong>Quantity:</strong> <?php echo $item['quantity']; ?></p>
-                                        <p><strong>Price:</strong> ₹<?php echo number_format($item['price'], 2); ?></p>
+                                <?php
+                                    // Group cart items by product so we can show multiple sizes per product clearly
+                                    $groups = [];
+                                    foreach ($cart_items as $item) {
+                                        $pid = $item['product_id'];
+                                        if (!isset($groups[$pid])) {
+                                            $groups[$pid] = [
+                                                'product' => $item,
+                                                'items' => []
+                                            ];
+                                        }
+                                        $groups[$pid]['items'][] = $item;
+                                    }
+
+                                    foreach ($groups as $g) {
+                                        $p = $g['product'];
+                                        // If there are multiple items for this product (different sizes) show them grouped
+                                ?>
+                                    <div class="cart-item">
+                                        <img src="<?php echo $p['image_path'] ?: 'images/placeholder.jpg'; ?>" alt="<?php echo htmlspecialchars($p['name']); ?>">
+                                        <div class="cart-item-details">
+                                            <h4><?php echo htmlspecialchars($p['name']); ?></h4>
+                                            <p><strong>Brand:</strong> <?php echo htmlspecialchars($p['brand']); ?></p>
+
+                                            <?php if (count($g['items']) > 1): ?>
+                                                <!-- Multiple entries (likely different sizes) -->
+                                                <div style="margin-top:8px;">
+                                                    <?php foreach ($g['items'] as $sub): ?>
+                                                        <div style="padding:6px 0;border-bottom:1px dashed #eee;">
+                                                            <?php if (!empty($sub['size'])): ?>
+                                                                <p style="margin:0;"><strong>Size:</strong> <?php echo htmlspecialchars($sub['size']); ?></p>
+                                                            <?php endif; ?>
+                                                            <p style="margin:0;"><strong>Quantity:</strong> <?php echo $sub['quantity']; ?></p>
+                                                            <p style="margin:0 0 4px 0;"><strong>Price:</strong> ₹<?php echo number_format($sub['price'], 2); ?></p>
+                                                        </div>
+                                                    <?php endforeach; ?>
+                                                </div>
+                                            <?php else: ?>
+                                                <!-- Single entry -->
+                                                <?php $only = $g['items'][0]; ?>
+                                                <?php if (!empty($only['size'])): ?><p><strong>Size:</strong> <?php echo htmlspecialchars($only['size']); ?></p><?php endif; ?>
+                                                <p><strong>Quantity:</strong> <?php echo $only['quantity']; ?></p>
+                                                <p><strong>Price:</strong> ₹<?php echo number_format($only['price'], 2); ?></p>
+                                            <?php endif; ?>
+                                        </div>
                                     </div>
-                                </div>
-                            <?php endforeach; ?>
+                                <?php } // end groups loop ?>
                         </div>
                         
                         <!-- Shipping Address -->

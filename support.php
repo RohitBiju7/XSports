@@ -452,14 +452,14 @@ $tickets = $stmt->fetchAll();
                                 <?php if (strlen($ticket['first_message'] ?? $ticket['description'] ?? '') > 100): ?>...<?php endif; ?>
                             </div>
                             <div class="ticket-actions">
-                                <a href="ticket_chat.php?id=<?php echo $ticket['id']; ?>" class="btn-view">
+                                <a href="ticket_chat.php?id=<?php echo $ticket['id']; ?>" class="btn-view" onclick="event.stopPropagation();">
                                     <i class="fa-solid fa-comments"></i> View Chat
                                 </a>
-                                
-                                <form method="POST" style="display: inline;" onsubmit="return confirmDelete()">
+
+                                <form method="POST" style="display: inline;" onsubmit="event.stopPropagation(); return confirmDelete();">
                                     <input type="hidden" name="action" value="delete_ticket">
                                     <input type="hidden" name="ticket_id" value="<?php echo $ticket['id']; ?>">
-                                    <button type="submit" class="btn-delete">
+                                    <button type="submit" class="btn-delete" onclick="event.stopPropagation();">
                                         <i class="fa-solid fa-trash"></i> Delete Chat
                                     </button>
                                 </form>

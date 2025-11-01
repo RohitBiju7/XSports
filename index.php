@@ -3,7 +3,7 @@ session_start();
 require_once 'includes/db.php';
 
 // Fetch random products from each category for trending products
-$categories = ['Running', 'Gym', 'Football', 'Badminton', 'Tennis', 'Cycling', 'Swimming'];
+$categories = ['Running', 'Fitness & Clothing', 'Football', 'Badminton', 'Tennis', 'Cycling', 'Swimming'];
 $trending_products = [];
 
 foreach ($categories as $category) {
@@ -42,7 +42,7 @@ include('includes/header.php');
   <div class="category-grid">
     <?php
       $categories = [
-        'Running', 'Fitness', 'Football', 'Badminton', 'Tennis', 'Cycling', 'Swimming'
+        'Running', 'Fitness & Clothing', 'Football', 'Badminton', 'Tennis', 'Cycling', 'Swimming'
       ];
       $links = [
         'running.php', 'fitness.php', 'football.php', 'badminton.php', 'tennis.php', 'cycling.php', 'swimming.php'
@@ -51,8 +51,8 @@ include('includes/header.php');
     ?>
       <a href="<?= $links[$i] ?>" style="text-decoration: none; color: inherit;">
         <div class="category-card">
-          <img src="images/cat<?= $i + 1 ?>.jpg" alt="<?= $categories[$i] ?>">
-          <p><?= $categories[$i] ?></p>
+          <img src="images/cat<?= $i + 1 ?>.jpg" alt="<?= htmlspecialchars($categories[$i]); ?>">
+          <p><?= htmlspecialchars($categories[$i]); ?></p>
         </div>
       </a>
     <?php endfor; ?>

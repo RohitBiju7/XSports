@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1:3306
--- Generation Time: Oct 31, 2025 at 05:37 AM
+-- Generation Time: Nov 01, 2025 at 05:12 PM
 -- Server version: 9.1.0
 -- PHP Version: 8.3.14
 
@@ -106,15 +106,9 @@ CREATE TABLE IF NOT EXISTS `orders` (
   `total` decimal(10,2) NOT NULL DEFAULT '0.00',
   `status` enum('placed','processing','shipped','delivered','cancelled') DEFAULT 'placed',
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `admin_confirmed` tinyint(1) DEFAULT '0',
   PRIMARY KEY (`id`)
-) ENGINE=MyISAM AUTO_INCREMENT=14 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
---
--- Dumping data for table `orders`
---
-
-INSERT INTO `orders` (`id`, `user_id`, `address_id`, `payment_method`, `subtotal`, `shipping`, `tax`, `total`, `status`, `created_at`) VALUES
-(13, 1, 2, 'cod', 3599.00, 50.00, 647.82, 4296.82, 'placed', '2025-10-31 05:36:21');
+) ENGINE=MyISAM AUTO_INCREMENT=27 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- --------------------------------------------------------
 
@@ -134,14 +128,7 @@ CREATE TABLE IF NOT EXISTS `order_items` (
   `image_path` varchar(255) DEFAULT NULL,
   `size` varchar(10) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=MyISAM AUTO_INCREMENT=17 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
---
--- Dumping data for table `order_items`
---
-
-INSERT INTO `order_items` (`id`, `order_id`, `product_id`, `product_name`, `brand`, `price`, `quantity`, `image_path`, `size`) VALUES
-(16, 13, 2, 'Men Water Resistant Mid Ankle Hiking Shoes Beige - NH150', 'QUECHUA', 3599.00, 1, 'images/products/68e5912b76d4e4.43466646.avif', '8');
+) ENGINE=MyISAM AUTO_INCREMENT=40 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- --------------------------------------------------------
 
@@ -162,16 +149,17 @@ CREATE TABLE IF NOT EXISTS `products` (
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `has_sizes` tinyint(1) DEFAULT '0',
   PRIMARY KEY (`id`)
-) ENGINE=MyISAM AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=MyISAM AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Dumping data for table `products`
 --
 
 INSERT INTO `products` (`id`, `name`, `brand`, `price`, `image_path`, `category`, `description`, `quantity`, `created_at`, `has_sizes`) VALUES
-(2, 'Men Water Resistant Mid Ankle Hiking Shoes Beige - NH150', 'QUECHUA', 3599.00, 'images/products/68e5912b76d4e4.43466646.avif', 'Running', 'Waterproof, comfortable shoes that provide good grip even on slightly uneven, hiking trails. Affordably priced and stylish in color. Tested to work in mild rain', 119, '2025-08-21 08:43:11', 1),
-(3, 'Football Ball Size 5 F550 - White', 'KIPSTA', 1099.00, 'images/products/68ca54fa1331b8.86109408.jpg', 'Football', 'The F550 hybrid has been approved by FIFA for your training sessions and matches. We\'ve designed it to give the perfect balance between durability and feel', 100, '2025-09-17 06:28:10', 0),
-(4, 'cycle', 'hero', 4999.00, 'images/products/68e76fc08475f2.94816617.jpg', 'Cycling', 'cycle riding', 10, '2025-10-09 08:18:08', 0);
+(2, 'Men Water Resistant Mid Ankle Hiking Shoes Beige - NH150', 'QUECHUA', 3599.00, 'images/products/68e5912b76d4e4.43466646.avif', 'Running', 'Waterproof, comfortable shoes that provide good grip even on slightly uneven, hiking trails. Affordably priced and stylish in color. Tested to work in mild rain', 176, '2025-08-21 08:43:11', 1),
+(3, 'Football Ball Size 5 F550 - White', 'KIPSTA', 1099.00, 'images/products/68ca54fa1331b8.86109408.jpg', 'Football', 'The F550 hybrid has been approved by FIFA for your training sessions and matches. We\'ve designed it to give the perfect balance between durability and feel', 127, '2025-09-17 06:28:10', 0),
+(5, 'Women\'s Fitted Leggings with a side pocket 120 - Comet Blue', 'DOMYOS', 1299.00, 'images/products/69046025047dc8.84105489.jpg', 'Running', 'High-waisted sports legging with breathable and stretchy fabric for all your fitness activities. Available in plain and print options along with a phone pocket.', 156, '2025-10-31 07:07:17', 1),
+(6, 'Men Puffer Jacket for Trekking - MT50 Black', 'FORCLAZ', 1699.00, 'images/products/69046278793fc4.39922476.jpg', 'Fitness & Clothing', 'your outings in cold weather with correc', 126, '2025-10-31 07:17:12', 1);
 
 -- --------------------------------------------------------
 
@@ -187,15 +175,26 @@ CREATE TABLE IF NOT EXISTS `product_sizes` (
   `stock` int NOT NULL DEFAULT '0',
   PRIMARY KEY (`id`),
   KEY `product_id` (`product_id`)
-) ENGINE=MyISAM AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=MyISAM AUTO_INCREMENT=40 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --
 -- Dumping data for table `product_sizes`
 --
 
 INSERT INTO `product_sizes` (`id`, `product_id`, `size`, `stock`) VALUES
-(4, 2, '8', 79),
-(3, 2, '6', 40);
+(4, 2, '8', 80),
+(3, 2, '6', 96),
+(16, 5, '3XL', 12),
+(15, 5, '2XL', 50),
+(14, 5, 'XL', 33),
+(13, 5, 'L', 9),
+(12, 5, 'M', 24),
+(11, 5, 'S', 28),
+(39, 6, '2XL', 19),
+(38, 6, 'XL', 18),
+(37, 6, 'L', 31),
+(36, 6, 'M', 42),
+(35, 6, 'S', 16);
 
 -- --------------------------------------------------------
 
@@ -212,18 +211,7 @@ CREATE TABLE IF NOT EXISTS `support_messages` (
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `ticket_id` (`ticket_id`)
-) ENGINE=MyISAM AUTO_INCREMENT=38 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
---
--- Dumping data for table `support_messages`
---
-
-INSERT INTO `support_messages` (`id`, `ticket_id`, `sender_type`, `message`, `created_at`) VALUES
-(36, 15, 'admin', 'asda', '2025-10-10 08:57:45'),
-(33, 15, 'user', 'adadad', '2025-10-10 08:57:25'),
-(34, 15, 'admin', 'asda', '2025-10-10 08:57:34'),
-(35, 15, 'user', 'ggg', '2025-10-10 08:57:39'),
-(37, 15, 'user', 'check', '2025-10-31 05:36:45');
+) ENGINE=MyISAM AUTO_INCREMENT=45 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
 
@@ -242,14 +230,7 @@ CREATE TABLE IF NOT EXISTS `support_tickets` (
   `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `user_id` (`user_id`)
-) ENGINE=MyISAM AUTO_INCREMENT=16 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
---
--- Dumping data for table `support_tickets`
---
-
-INSERT INTO `support_tickets` (`id`, `user_id`, `subject`, `description`, `status`, `created_at`, `updated_at`) VALUES
-(15, 1, 'Testing Live Communication', 'adadad', 'active', '2025-10-10 08:57:25', '2025-10-10 08:57:28');
+) ENGINE=MyISAM AUTO_INCREMENT=19 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
 
@@ -290,6 +271,13 @@ CREATE TABLE IF NOT EXISTS `wishlist` (
   PRIMARY KEY (`user_id`,`product_id`),
   KEY `product_id` (`product_id`)
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Dumping data for table `wishlist`
+--
+
+INSERT INTO `wishlist` (`user_id`, `product_id`) VALUES
+(2, 5);
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;

@@ -133,14 +133,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $size = isset($_POST['size']) ? trim($_POST['size']) : null;
         $quantity = max(1, intval($_POST['quantity'])); // Ensure quantity is at least 1
 
+        // Validate stock before updating
         if ($size !== null && $size !== '') {
-            $stmt = $pdo->prepare('UPDATE cart_items SET quantity = ? WHERE user_id = ? AND product_id = ? AND size = ?');
-            $stmt->execute([$quantity, $user_id, $product_id, $size]);
+            // Check size-specific stock
+            $sStmt = $pdo->prepare('SELECT stock FROM product_sizes WHERE product_id = ? AND size = ?');
+            $sStmt->execute([$product_id, $size]);
+            $sRow = $sStmt->fetch();
+
+            if (!$sRow) {
+                $msg = 'Selected size not found for this product.';
+            } elseif ((int)$sRow['stock'] < $quantity) {
+                $msg = 'Insufficient stock for selected size. Only ' . (int)$sRow['stock'] . ' left.';
+            } else {
+                // Also ensure overall product quantity is sufficient as a defensive check
+                $pStmt = $pdo->prepare('SELECT quantity FROM products WHERE id = ?');
+                $pStmt->execute([$product_id]);
+                $pRow = $pStmt->fetch();
+                if ($pRow && (int)$pRow['quantity'] < $quantity) {
+                    $msg = 'Insufficient product stock. Only ' . (int)$pRow['quantity'] . ' left.';
+                } else {
+                    $stmt = $pdo->prepare('UPDATE cart_items SET quantity = ? WHERE user_id = ? AND product_id = ? AND size = ?');
+                    $stmt->execute([$quantity, $user_id, $product_id, $size]);
+                    $msg = 'Cart updated!';
+                }
+            }
         } else {
-            $stmt = $pdo->prepare('UPDATE cart_items SET quantity = ? WHERE user_id = ? AND product_id = ? AND size IS NULL');
-            $stmt->execute([$quantity, $user_id, $product_id]);
+            // No size selected: validate against overall product quantity
+            $pStmt = $pdo->prepare('SELECT quantity FROM products WHERE id = ?');
+            $pStmt->execute([$product_id]);
+            $pRow = $pStmt->fetch();
+            $available = $pRow ? (int)$pRow['quantity'] : 0;
+            if ($available < $quantity) {
+                $msg = 'Insufficient stock. Only ' . $available . ' left.';
+            } else {
+                // Some rows may store size as NULL or empty string — handle both
+                $stmt = $pdo->prepare('UPDATE cart_items SET quantity = ? WHERE user_id = ? AND product_id = ? AND (size IS NULL OR size = \'\')');
+                $stmt->execute([$quantity, $user_id, $product_id]);
+                $msg = 'Cart updated!';
+            }
         }
-        $msg = 'Cart updated!';
     }
 
     // Remove item
@@ -151,7 +182,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt = $pdo->prepare('DELETE FROM cart_items WHERE user_id = ? AND product_id = ? AND size = ?');
             $stmt->execute([$user_id, $product_id, $size]);
         } else {
-            $stmt = $pdo->prepare('DELETE FROM cart_items WHERE user_id = ? AND product_id = ? AND size IS NULL');
+            // handle rows where size is NULL or empty string
+            $stmt = $pdo->prepare('DELETE FROM cart_items WHERE user_id = ? AND product_id = ? AND (size IS NULL OR size = \'\')');
             $stmt->execute([$user_id, $product_id]);
         }
         $msg = 'Item removed from cart!';

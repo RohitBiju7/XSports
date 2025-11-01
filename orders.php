@@ -91,6 +91,9 @@ $orders = $stmt->fetchAll();
                             <button type="submit" class="btn" style="background:#555">Remove</button>
                         </form>
                     <?php endif; ?>
+                    
+                    <!-- Download invoice -->
+                    <a href="invoice.php?id=<?php echo (int)$order['id']; ?>" class="btn" style="background:#2e7d32;margin-left:10px;">Download Invoice</a>
                     <div id="items_<?php echo $order['id']; ?>" class="order-items" style="display:none;">
                         <?php foreach ($items as $it): ?>
                             <div class="order-item">

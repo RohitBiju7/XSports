@@ -29,9 +29,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $brand = $_POST['brand'];
                 $price = $_POST['price'];
                 $category = $_POST['category'];
-                $stock = isset($_POST['stock']) ? (int)$_POST['stock'] : 0;
+                $stock = (isset($_POST['stock']) && $_POST['stock'] !== '') ? (int)$_POST['stock'] : 0;
                 $description = $_POST['description'] ?? '';
-                $has_sizes = isset($_POST['has_sizes']) ? 1 : 0;
+                // Support both shoe sizes and apparel sizes (S,M,L...)
+                $has_sizes = (isset($_POST['has_sizes']) || isset($_POST['has_apparel_sizes'])) ? 1 : 0;
 
                 // If sizes provided, compute total stock as sum of per-size stocks
                 $size_stock = [];
@@ -76,9 +77,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $brand = $_POST['brand'];
                 $price = $_POST['price'];
                 $category = $_POST['category'];
-                $stock = isset($_POST['stock']) ? (int)$_POST['stock'] : 0;
+                $stock = (isset($_POST['stock']) && $_POST['stock'] !== '') ? (int)$_POST['stock'] : 0;
                 $description = $_POST['description'] ?? '';
-                $has_sizes = isset($_POST['has_sizes']) ? 1 : 0;
+                // Support both shoe sizes and apparel sizes
+                $has_sizes = (isset($_POST['has_sizes']) || isset($_POST['has_apparel_sizes'])) ? 1 : 0;
 
                 // collect size stocks if provided
                 $size_stock = [];
@@ -423,23 +425,52 @@ $products = $stmt->fetchAll();
             background-color: rgba(0, 0, 0, 0.5);
         }
         
-        .modal-content {
+    .modal-content {
             background-color: white;
-            margin: 5% auto;
-            padding: 30px;
+            margin: 20px auto;
+            padding: 0; /* inner sections will handle padding */
             border-radius: 15px;
             width: 90%;
-            max-width: 500px;
+            max-width: 560px;
             box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
-            max-height: 90vh;
+            max-height: calc(100vh - 40px);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden; /* body will scroll instead */
+        }
+
+        /* Ensure the immediate form child fills modal so .modal-body can flex/scroll */
+        .modal-content > form {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            min-height: 0;
+        }
+
+        /* Modal body should scroll when content exceeds available space */
+        .modal-body {
+            padding: 20px 24px;
             overflow-y: auto;
+            flex: 1 1 auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .modal-footer {
+            padding: 16px 24px;
+            border-top: 1px solid #f1f1f1;
+            display: flex;
+            gap: 10px;
+            flex: 0 0 auto;
+            background: #fff;
         }
         
         .modal-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 20px;
+            padding: 20px 24px;
+            border-bottom: 1px solid #f1f1f1;
+            flex: 0 0 auto;
         }
         
         .modal-header h3 {
@@ -524,29 +555,25 @@ $products = $stmt->fetchAll();
                         <label for="category">Category *</label>
                         <select id="category" name="category" required>
                             <option value="">Select Category</option>
-                            <option value="Cricket">Cricket</option>
-                            <option value="Football">Football</option>
-                            <option value="Basketball">Basketball</option>
-                            <option value="Tennis">Tennis</option>
-                            <option value="Badminton">Badminton</option>
                             <option value="Running">Running</option>
-                            <option value="Gym">Gym</option>
+                            <option value="Fitness &amp; Clothing">Fitness &amp; Clothing</option>
+                            <option value="Football">Football</option>
+                            <option value="Badminton">Badminton</option>
+                            <option value="Tennis">Tennis</option>
                             <option value="Cycling">Cycling</option>
                             <option value="Swimming">Swimming</option>
-                            <option value="Yoga">Yoga</option>
-                            <option value="Other">Other</option>
                         </select>
                     </div>
                     
                     <div class="form-group">
-                        <label for="stock">Stock Quantity *</label>
-                        <input type="number" id="stock" name="stock" min="0" required>
+                        <label for="stock">Stock Quantity</label>
+                        <input type="number" id="stock" name="stock" min="0" placeholder="Leave empty if using per-size stock">
                     </div>
 
                     <div class="form-group">
                         <label><input type="checkbox" id="has_sizes" name="has_sizes" value="1"> Has sizes (shoe)</label>
                         <div id="sizeInputs" style="margin-top:12px; display:none; border:1px dashed #e9ecef; padding:12px; border-radius:8px;">
-                            <p style="margin:0 0 8px 0; font-weight:600;">Enter stock per size:</p>
+                            <p style="margin:0 0 8px 0; font-weight:600;">Enter stock per shoe size:</p>
                             <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
                                 <?php $shoe_sizes = ['6','6.5','7','7.5','8','8.5','9','9.5','10'];
                                 foreach ($shoe_sizes as $s): ?>
@@ -556,7 +583,21 @@ $products = $stmt->fetchAll();
                                     </div>
                                 <?php endforeach; ?>
                             </div>
-                            <p style="margin-top:10px;font-size:13px;color:#666;">When sizes are checked, the total stock will be the sum of per-size stocks and will override the Stock Quantity field.</p>
+                            <p style="margin-top:10px;font-size:13px;color:#666;">When sizes are used, the total stock will be the sum of per-size stocks and will override the Stock Quantity field.</p>
+                        </div>
+                        
+                        <label style="display:block;margin-top:12px;"><input type="checkbox" id="has_apparel_sizes" name="has_apparel_sizes" value="1"> Has sizes (shirt/pants)</label>
+                        <div id="apparelSizeInputs" style="margin-top:12px; display:none; border:1px dashed #e9ecef; padding:12px; border-radius:8px;">
+                            <p style="margin:0 0 8px 0; font-weight:600;">Enter stock per apparel size (S, M, L...):</p>
+                            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
+                                <?php $apparel_sizes = ['S','M','L','XL','2XL','3XL']; foreach ($apparel_sizes as $as): ?>
+                                    <div>
+                                        <label style="display:block;font-size:13px;margin-bottom:6px;"><?php echo $as; ?></label>
+                                        <input type="number" name="size_stock[<?php echo $as; ?>]" min="0" value="0" style="width:100%; padding:8px; border:1px solid #e9ecef; border-radius:6px;">
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                            <p style="margin-top:10px;font-size:13px;color:#666;">When sizes are used, the total stock will be the sum of per-size stocks and will override the Stock Quantity field.</p>
                         </div>
                     </div>
                     
@@ -668,7 +709,7 @@ $products = $stmt->fetchAll();
             <form method="POST" id="editForm" enctype="multipart/form-data">
                 <input type="hidden" name="action" value="edit">
                 <input type="hidden" name="id" id="edit_id">
-                
+                <div class="modal-body" style="padding:20px 24px; overflow-y:auto;">
                 <div class="form-group">
                     <label for="edit_name">Product Name *</label>
                     <input type="text" id="edit_name" name="name" required>
@@ -688,23 +729,19 @@ $products = $stmt->fetchAll();
                     <label for="edit_category">Category *</label>
                     <select id="edit_category" name="category" required>
                         <option value="">Select Category</option>
-                        <option value="Cricket">Cricket</option>
-                        <option value="Football">Football</option>
-                        <option value="Basketball">Basketball</option>
-                        <option value="Tennis">Tennis</option>
-                        <option value="Badminton">Badminton</option>
                         <option value="Running">Running</option>
-                        <option value="Gym">Gym</option>
+                        <option value="Fitness &amp; Clothing">Fitness &amp; Clothing</option>
+                        <option value="Football">Football</option>
+                        <option value="Badminton">Badminton</option>
+                        <option value="Tennis">Tennis</option>
                         <option value="Cycling">Cycling</option>
                         <option value="Swimming">Swimming</option>
-                        <option value="Yoga">Yoga</option>
-                        <option value="Other">Other</option>
                     </select>
                 </div>
                 
                 <div class="form-group">
-                    <label for="edit_stock">Stock Quantity *</label>
-                    <input type="number" id="edit_stock" name="stock" min="0" required>
+                    <label for="edit_stock">Stock Quantity</label>
+                    <input type="number" id="edit_stock" name="stock" min="0" placeholder="Leave empty if using per-size stock">
                 </div>
 
                 <div class="form-group">
@@ -722,6 +759,23 @@ $products = $stmt->fetchAll();
                         <p style="margin-top:10px;font-size:13px;color:#666;">When sizes are used, total stock will be the sum of sizes and will override Stock Quantity.</p>
                     </div>
                 </div>
+                <div class="form-group">
+                    <label><input type="checkbox" id="edit_has_apparel_sizes" name="has_apparel_sizes" value="1"> Has sizes (shirt/pants)</label>
+                    <div id="editApparelSizeInputs" style="margin-top:12px; display:none; border:1px dashed #e9ecef; padding:12px; border-radius:8px;">
+                        <p style="margin:0 0 8px 0; font-weight:600;">Enter stock per apparel size:</p>
+                        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
+                            <?php foreach ($apparel_sizes as $as): ?>
+                                <div>
+                                    <label style="display:block;font-size:13px;margin-bottom:6px;">
+                                        <?php echo $as; ?>
+                                    </label>
+                                    <input type="number" id="edit_size_<?php echo $as; ?>" name="size_stock[<?php echo $as; ?>]" min="0" value="0" style="width:100%; padding:8px; border:1px solid #e9ecef; border-radius:6px;">
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                        <p style="margin-top:10px;font-size:13px;color:#666;">When sizes are used, total stock will be the sum of sizes and will override Stock Quantity.</p>
+                    </div>
+                </div>
                 
                 <div class="form-group">
                     <label for="edit_description">Description</label>
@@ -731,12 +785,12 @@ $products = $stmt->fetchAll();
                     <label for="edit_image">Edit Image (leave empty to keep current)</label>
                     <input type="file" id="edit_image" name="image" accept="image/*">
                 </div>
-                
-                <div style="display: flex; gap: 10px;">
-                    <button type="submit" class="btn-primary" style="flex: 1;">
+                </div> <!-- /.modal-body -->
+                <div class="modal-footer" style="padding:16px 24px;border-top:1px solid #f1f1f1;display:flex;gap:10px;flex:0 0 auto;">
+                    <button type="submit" class="btn-primary" style="flex: 1;padding:12px 18px;">
                         <i class="fa-solid fa-save"></i> Save Changes
                     </button>
-                    <button type="button" onclick="closeModal()" style="flex: 1; background: #6c757d; color: white; border: none; padding: 15px 30px; border-radius: 8px; cursor: pointer;">
+                    <button type="button" onclick="closeModal()" style="flex: 1; background: #6c757d; color: white; border: none; padding: 12px 18px; border-radius: 8px; cursor: pointer;">
                         Cancel
                     </button>
                 </div>
@@ -751,16 +805,18 @@ $products = $stmt->fetchAll();
                 <h3><i class="fa-solid fa-exclamation-triangle"></i> Confirm Delete</h3>
                 <span class="close" onclick="closeDeleteModal()">&times;</span>
             </div>
-            <p>Are you sure you want to delete "<span id="deleteProductName"></span>"?</p>
-            <p style="color: #f44336; font-weight: 600;">This action cannot be undone.</p>
+            <div class="modal-body" style="padding:20px 24px; overflow-y:auto;">
+                <p>Are you sure you want to delete "<span id="deleteProductName"></span>"?</p>
+                <p style="color: #f44336; font-weight: 600;">This action cannot be undone.</p>
+            </div>
             <form method="POST" id="deleteForm">
                 <input type="hidden" name="action" value="delete">
                 <input type="hidden" name="id" id="delete_id">
-                <div style="display: flex; gap: 10px;">
-                    <button type="submit" class="btn-delete" style="flex: 1; padding: 15px 30px; border-radius: 8px;">
+                <div class="modal-footer" style="padding:16px 24px;border-top:1px solid #f1f1f1;display:flex;gap:10px;flex:0 0 auto;">
+                    <button type="submit" class="btn-delete" style="flex: 1; padding: 12px 18px; border-radius: 8px;">
                         <i class="fa-solid fa-trash"></i> Delete Product
                     </button>
-                    <button type="button" onclick="closeDeleteModal()" style="flex: 1; background: #6c757d; color: white; border: none; padding: 15px 30px; border-radius: 8px; cursor: pointer;">
+                    <button type="button" onclick="closeDeleteModal()" style="flex: 1; background: #6c757d; color: white; border: none; padding: 12px 18px; border-radius: 8px; cursor: pointer;">
                         Cancel
                     </button>
                 </div>
@@ -779,11 +835,17 @@ $products = $stmt->fetchAll();
             document.getElementById('edit_stock').value = quantity;
             document.getElementById('edit_description').value = description;
 
-            // reset size inputs
+            // reset size inputs (shoe)
             document.getElementById('edit_has_sizes').checked = false;
             document.getElementById('editSizeInputs').style.display = 'none';
             <?php foreach ($shoe_sizes as $s): ?>
                 document.getElementById('edit_size_<?php echo str_replace('.','_',$s); ?>').value = 0;
+            <?php endforeach; ?>
+            // reset apparel size inputs
+            document.getElementById('edit_has_apparel_sizes').checked = false;
+            document.getElementById('editApparelSizeInputs').style.display = 'none';
+            <?php foreach ($apparel_sizes as $as): ?>
+                document.getElementById('edit_size_<?php echo $as; ?>').value = 0;
             <?php endforeach; ?>
 
             // populate sizes if provided
@@ -791,13 +853,28 @@ $products = $stmt->fetchAll();
                 try {
                     var sizes = JSON.parse(sizesJson);
                     if (sizes && sizes.length > 0) {
-                        document.getElementById('edit_has_sizes').checked = true;
-                        document.getElementById('editSizeInputs').style.display = 'block';
+                        var shoeFound = false;
+                        var apparelFound = false;
                         sizes.forEach(function(r){
                             var id = r.size.toString().replace('.','_');
                             var el = document.getElementById('edit_size_' + id);
-                            if (el) el.value = r.stock;
+                            if (el) {
+                                el.value = r.stock;
+                                shoeFound = true;
+                            } else {
+                                // try apparel inputs
+                                var el2 = document.getElementById('edit_size_' + r.size);
+                                if (el2) { el2.value = r.stock; apparelFound = true; }
+                            }
                         });
+                        if (shoeFound) {
+                            document.getElementById('edit_has_sizes').checked = true;
+                            document.getElementById('editSizeInputs').style.display = 'block';
+                        }
+                        if (apparelFound) {
+                            document.getElementById('edit_has_apparel_sizes').checked = true;
+                            document.getElementById('editApparelSizeInputs').style.display = 'block';
+                        }
                     }
                 } catch(e) { /* ignore parse errors */ }
             }
@@ -833,14 +910,22 @@ $products = $stmt->fetchAll();
             }
         }
         
-        // show/hide size inputs on add form
+        // show/hide size inputs on add form (shoe)
         document.getElementById('has_sizes').addEventListener('change', function(){
             document.getElementById('sizeInputs').style.display = this.checked ? 'block' : 'none';
         });
+        // show/hide apparel size inputs on add form
+        document.getElementById('has_apparel_sizes').addEventListener('change', function(){
+            document.getElementById('apparelSizeInputs').style.display = this.checked ? 'block' : 'none';
+        });
 
-        // show/hide size inputs on edit form
+        // show/hide size inputs on edit form (shoe)
         document.getElementById('edit_has_sizes').addEventListener('change', function(){
             document.getElementById('editSizeInputs').style.display = this.checked ? 'block' : 'none';
+        });
+        // show/hide apparel size inputs on edit form
+        document.getElementById('edit_has_apparel_sizes').addEventListener('change', function(){
+            document.getElementById('editApparelSizeInputs').style.display = this.checked ? 'block' : 'none';
         });
     </script>
 </body>

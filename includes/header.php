@@ -66,8 +66,7 @@ if (isset($_SESSION['user_id'])) {
     Welcome, Admin!
   </div>
   <hr style="margin: 5px 0; border: none; border-top: 1px solid #eee;">
-<a href="admin.php"><i class="fa-solid fa-tachometer-alt"></i><span>Dashboard</span></a>
-<a href="admin_support.php"><i class="fa-solid fa-headset"></i><span>Support Management</span></a>
+<a href="admin_dashboard.php"><i class="fa-solid fa-tachometer-alt"></i><span>Dashboard</span></a>
 <a class="logout-link" href="admin.php?logout=1"><i class="fa-solid fa-arrow-right-from-bracket"></i><span>Logout</span></a>
 </div>
 </div>
@@ -94,7 +93,6 @@ if (isset($_SESSION['user_id'])) {
   <hr style="margin: 5px 0; border: none; border-top: 1px solid #eee;">
 <a href="dashboard.php"><i class="fa-regular fa-user"></i><span>My Profile</span></a>
 <a href="orders.php"><i class="fa-solid fa-box"></i><span>Orders</span></a>
-<a href="dashboard.php"><i class="fa-regular fa-envelope"></i><span>My Addresses</span></a>
 <a class="logout-link" href="logout.php"><i class="fa-solid fa-arrow-right-from-bracket"></i><span>Logout</span></a>
 </div>
 </div>

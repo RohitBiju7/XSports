@@ -42,6 +42,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && isset($_
         };
 
         if ($action === 'confirm') {
+            if ((int)($order['admin_confirmed'] ?? 0) === 1) {
+                $pdo->rollBack();
+                header('Location: admin_orders.php?msg=already_confirmed');
+                exit;
+            }
+
+            if (isset($order['status']) && $order['status'] === 'cancelled') {
+                $pdo->rollBack();
+                header('Location: admin_orders.php?msg=cannot_confirm_cancelled');
+                exit;
+            }
+
             // Mark admin_confirmed
             $upd = $pdo->prepare("UPDATE orders SET admin_confirmed = 1, status = 'confirmed' WHERE id = ?");
             $upd->execute([$order_id]);
@@ -51,6 +63,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && isset($_
         }
 
         if ($action === 'reject' || $action === 'cancel') {
+            if (isset($order['status']) && $order['status'] === 'cancelled') {
+                $pdo->rollBack();
+                header('Location: admin_orders.php?msg=already_cancelled');
+                exit;
+            }
+
             // Mark cancelled and restore stock
             $upd = $pdo->prepare("UPDATE orders SET status = 'cancelled', admin_confirmed = 0 WHERE id = ?");
             $upd->execute([$order_id]);
@@ -138,7 +156,7 @@ $orders = $ordersStmt->fetchAll();
                         <?php endforeach; ?>
                     </ul>
                     <div style="margin-top:10px;">
-                        <?php if (!(isset($order['admin_confirmed']) && (int)$order['admin_confirmed'] === 1)): ?>
+                        <?php if ($order['status'] !== 'cancelled' && !(isset($order['admin_confirmed']) && (int)$order['admin_confirmed'] === 1)): ?>
                             <form method="post" style="display:inline-block;margin-right:8px;">
                                 <input type="hidden" name="order_id" value="<?php echo (int)$order['id']; ?>">
                                 <input type="hidden" name="action" value="confirm">
