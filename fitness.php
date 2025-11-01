@@ -6,9 +6,36 @@ require_once 'includes/db.php';
 $stmt = $pdo->prepare('SELECT * FROM products WHERE category = ? ORDER BY id DESC');
 $stmt->execute(['Fitness & Clothing']);
 $products = $stmt->fetchAll();
+$totalProducts = count($products);
 ?>
 
 <?php include('includes/header.php'); ?>
+<style>
+  .load-more-container {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    margin: 24px auto 0;
+  }
+  .btn-load-more {
+    background: #005eb8;
+    color: #fff;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.3s ease;
+  }
+  .btn-load-more:hover { background: #024c95; }
+  .btn-load-more.secondary {
+    background: #fff;
+    color: #005eb8;
+    border: 2px solid #005eb8;
+  }
+  .btn-load-more.secondary:hover { background: #f0f6ff; }
+  .hidden-card { display: none !important; }
+</style>
 
 <main class="page-container">
   <!-- Hero Image Slider -->
@@ -36,8 +63,8 @@ $products = $stmt->fetchAll();
           <p>Check back later for new arrivals!</p>
         </div>
       <?php else: ?>
-        <?php foreach ($products as $product): ?>
-        <div class="product-card">
+        <?php $index = 0; foreach ($products as $product): ?>
+        <div class="product-card<?php echo $index >= 8 ? ' hidden-card' : ''; ?>">
           <a href="product.php?id=<?php echo (int)$product['id']; ?>" style="text-decoration:none;color:inherit;">
           <div style="position: relative;">
               <img src="<?php echo $product['image_path'] ?: 'images/fitness1.jpg'; ?>" alt="<?php echo htmlspecialchars($product['name']); ?>">
@@ -63,7 +90,6 @@ $products = $stmt->fetchAll();
                 </form>
               </div>
             <?php else: ?>
-              <button class="btn-buy-now" disabled style="opacity: 0.5; cursor: not-allowed;">OUT OF STOCK</button>
               <button class="btn-add-cart" disabled style="opacity: 0.5; cursor: not-allowed;">OUT OF STOCK</button>
               <form method="post" action="add_to_wishlist.php" style="display: inline;">
                 <input type="hidden" name="product_id" value="<?php echo $product['id']; ?>">
@@ -71,9 +97,15 @@ $products = $stmt->fetchAll();
               </form>
             <?php endif; ?>
           </div>
-        <?php endforeach; ?>
+        <?php $index++; endforeach; ?>
       <?php endif; ?>
     </div>
+    <?php if ($totalProducts > 8): ?>
+      <div class="load-more-container">
+        <button type="button" class="btn-load-more" id="btnShowMore">Show More</button>
+        <button type="button" class="btn-load-more secondary" id="btnShowAll">Show All</button>
+      </div>
+    <?php endif; ?>
   </section>
 </main>
 
@@ -104,10 +136,41 @@ $products = $stmt->fetchAll();
     autoSlide = setInterval(nextSlide, 5000);
   }
 
-  window.onload = () => {
+  document.addEventListener('DOMContentLoaded', () => {
     showSlide(slideIndex);
     startAutoSlide();
-  };
+
+    const cards = Array.from(document.querySelectorAll('.product-grid .product-card'));
+    const showStep = 8;
+    let visibleCount = Math.min(showStep, cards.length);
+    const btnMore = document.getElementById('btnShowMore');
+    const btnAll = document.getElementById('btnShowAll');
+
+    function updateVisibility() {
+      cards.forEach((card, idx) => {
+        if (idx < visibleCount) card.classList.remove('hidden-card');
+        else card.classList.add('hidden-card');
+      });
+      if (btnMore) btnMore.style.display = visibleCount >= cards.length ? 'none' : 'inline-flex';
+      if (btnAll) btnAll.style.display = visibleCount >= cards.length ? 'none' : 'inline-flex';
+    }
+
+    if (btnMore) {
+      btnMore.addEventListener('click', () => {
+        visibleCount = Math.min(visibleCount + showStep, cards.length);
+        updateVisibility();
+      });
+    }
+
+    if (btnAll) {
+      btnAll.addEventListener('click', () => {
+        visibleCount = cards.length;
+        updateVisibility();
+      });
+    }
+
+    updateVisibility();
+  });
 </script>
 
 <?php include('includes/footer.php'); ?>

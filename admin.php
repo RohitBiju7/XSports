@@ -133,9 +133,54 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Get all products
-$stmt = $pdo->query('SELECT * FROM products ORDER BY id DESC');
-$products = $stmt->fetchAll();
+// Inventory filters: search, category, pagination
+$searchQuery = isset($_GET['q']) ? trim($_GET['q']) : '';
+$filterCategory = isset($_GET['category']) ? trim($_GET['category']) : 'all';
+$currentPage = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
+$perPage = 10;
+
+$baseSql = 'FROM products';
+$conditions = [];
+$params = [];
+
+if ($searchQuery !== '') {
+    $conditions[] = '(name LIKE ? OR brand LIKE ?)';
+    $wild = '%' . $searchQuery . '%';
+    $params[] = $wild;
+    $params[] = $wild;
+}
+
+if ($filterCategory !== 'all' && $filterCategory !== '') {
+    $conditions[] = 'category = ?';
+    $params[] = $filterCategory;
+}
+
+if ($conditions) {
+    $baseSql .= ' WHERE ' . implode(' AND ', $conditions);
+}
+
+// Count total filtered records
+$countStmt = $pdo->prepare('SELECT COUNT(*) ' . $baseSql);
+$countStmt->execute($params);
+$totalProductsCount = (int) $countStmt->fetchColumn();
+
+$totalPages = max(1, (int)ceil($totalProductsCount / $perPage));
+if ($currentPage > $totalPages) {
+    $currentPage = $totalPages;
+}
+$offset = ($currentPage - 1) * $perPage;
+
+$listStmt = $pdo->prepare('SELECT * ' . $baseSql . ' ORDER BY id DESC LIMIT ? OFFSET ?');
+foreach ($params as $idx => $val) {
+    $listStmt->bindValue($idx + 1, $val);
+}
+$listStmt->bindValue(count($params) + 1, $perPage, PDO::PARAM_INT);
+$listStmt->bindValue(count($params) + 2, $offset, PDO::PARAM_INT);
+$listStmt->execute();
+$products = $listStmt->fetchAll();
+
+$categoryListStmt = $pdo->query('SELECT DISTINCT category FROM products ORDER BY category ASC');
+$inventoryCategories = $categoryListStmt->fetchAll(PDO::FETCH_COLUMN);
 ?>
 
 <!DOCTYPE html>
@@ -270,13 +315,44 @@ $products = $stmt->fetchAll();
             color: white;
             padding: 20px 30px;
             display: flex;
-            align-items: center;
-            gap: 10px;
+            flex-direction: column;
+            gap: 16px;
         }
         
         .inventory-header h2 {
             margin: 0;
             font-size: 1.5rem;
+        }
+
+        .inventory-filters {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .inventory-filters input[type="text"],
+        .inventory-filters select {
+            padding: 10px 14px;
+            border-radius: 8px;
+            border: 1px solid #d9d9d9;
+            font-size: 14px;
+            min-width: 220px;
+        }
+
+        .inventory-filters button {
+            padding: 10px 18px;
+            border-radius: 8px;
+            border: none;
+            background: #005eb8;
+            color: #fff;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+
+        .inventory-filters button:hover {
+            background: #024c95;
         }
         
         .products-table {
@@ -494,6 +570,9 @@ $products = $stmt->fetchAll();
             .admin-sections {
                 grid-template-columns: 1fr;
             }
+            .inventory-header {
+                align-items: flex-start;
+            }
         }
         
         @media (max-width: 768px) {
@@ -517,6 +596,60 @@ $products = $stmt->fetchAll();
             .action-buttons {
                 flex-direction: column;
             }
+        }
+
+        .pagination-wrapper {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin: 12px 0;
+            padding: 0 30px;
+        }
+
+        .pagination-controls {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .pagination-controls button {
+            padding: 8px 14px;
+            border-radius: 6px;
+            border: 1px solid #d0d7de;
+            background: #fff;
+            color: #2d3748;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        .pagination-controls button:hover {
+            background: #f0f6ff;
+        }
+
+        .pagination-controls button.active {
+            background: #005eb8;
+            color: #fff;
+            border-color: #005eb8;
+        }
+
+        .pagination-input {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .pagination-input input {
+            width: 60px;
+            padding: 6px 8px;
+            border: 1px solid #d0d7de;
+            border-radius: 6px;
+        }
+
+        .pagination-input button {
+            padding: 6px 12px;
         }
     </style>
 </head>
@@ -619,9 +752,22 @@ $products = $stmt->fetchAll();
             
             <!-- Inventory Section -->
             <div class="inventory-section">
-                <div class="inventory-header">
-                    <h2><i class="fa-solid fa-list"></i> Current Inventory</h2>
-                </div>
+            <div class="inventory-header">
+                <h2><i class="fa-solid fa-list"></i> Current Inventory</h2>
+                <form class="inventory-filters" method="get">
+                    <input type="text" name="q" value="<?php echo htmlspecialchars($searchQuery); ?>" placeholder="Search by product or brand">
+                    <select name="category">
+                        <option value="all" <?php echo $filterCategory === 'all' ? 'selected' : ''; ?>>Show All Categories</option>
+                        <?php foreach ($inventoryCategories as $cat): ?>
+                            <option value="<?php echo htmlspecialchars($cat); ?>" <?php echo $filterCategory === $cat ? 'selected' : ''; ?>><?php echo htmlspecialchars($cat); ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                    <button type="submit">Apply</button>
+                    <?php if ($searchQuery !== '' || ($filterCategory !== 'all' && $filterCategory !== '')): ?>
+                        <a href="admin.php" style="color:#fff;text-decoration:underline;">Reset</a>
+                    <?php endif; ?>
+                </form>
+            </div>
                 
                 <?php if (empty($products)): ?>
                     <div class="empty-state">
@@ -630,6 +776,18 @@ $products = $stmt->fetchAll();
                         <p>Start by adding your first product using the form on the left.</p>
                     </div>
                 <?php else: ?>
+                    <div class="pagination-wrapper">
+                        <div class="pagination-info">
+                            Showing
+                            <?php
+                                $start = $offset + 1;
+                                $end = min($offset + $perPage, $totalProductsCount);
+                                echo $totalProductsCount ? "{$start}-{$end}" : '0';
+                            ?>
+                            of <?php echo number_format($totalProductsCount); ?> product(s)
+                        </div>
+                        <?php include __DIR__ . '/partials/pagination.php'; ?>
+                    </div>
                     <div style="overflow-x: auto;">
                         <table class="products-table">
                             <thead>
@@ -662,14 +820,14 @@ $products = $stmt->fetchAll();
                                         <td><span class="product-category"><?php echo htmlspecialchars($product['category']); ?></span></td>
                                         <td>
                                             <?php
-                                                                $stock = $product['quantity'];
-                    if ($stock > 10) {
-                        echo '<span class="stock-status stock-in">In Stock (' . $stock . ')</span>';
-                    } elseif ($stock > 0) {
-                        echo '<span class="stock-status stock-low">Low Stock (' . $stock . ')</span>';
-                    } else {
-                        echo '<span class="stock-status stock-out">Out of Stock</span>';
-                    }
+                                                $stock = $product['quantity'];
+                                                if ($stock > 10) {
+                                                    echo '<span class="stock-status stock-in">In Stock (' . $stock . ')</span>';
+                                                } elseif ($stock > 0) {
+                                                    echo '<span class="stock-status stock-low">Low Stock (' . $stock . ')</span>';
+                                                } else {
+                                                    echo '<span class="stock-status stock-out">Out of Stock</span>';
+                                                }
                                             ?>
                                         </td>
                                         <td>
@@ -679,9 +837,19 @@ $products = $stmt->fetchAll();
                                                 $sizeRows = $pdo->prepare('SELECT size, stock FROM product_sizes WHERE product_id = ?');
                                                 $sizeRows->execute([$product['id']]);
                                                 $sizesArr = $sizeRows->fetchAll();
-                                                $sizesJson = htmlspecialchars(json_encode($sizesArr), ENT_QUOTES);
+                                                $productPayload = [
+                                                    'id' => (int)$product['id'],
+                                                    'name' => $product['name'],
+                                                    'brand' => $product['brand'],
+                                                    'price' => (float)$product['price'],
+                                                    'category' => $product['category'],
+                                                    'quantity' => (int)$product['quantity'],
+                                                    'description' => $product['description'] ?? '',
+                                                    'sizes' => $sizesArr
+                                                ];
+                                                $productJson = htmlspecialchars(json_encode($productPayload, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP), ENT_QUOTES, 'UTF-8');
                                                 ?>
-                                                <button class="btn-edit" onclick="editProduct(<?php echo $product['id']; ?>, '<?php echo addslashes($product['name']); ?>', '<?php echo addslashes($product['brand']); ?>', '<?php echo $product['price']; ?>', '<?php echo addslashes($product['category']); ?>', '<?php echo $product['quantity']; ?>', '<?php echo addslashes($product['description'] ?? ''); ?>', '<?php echo $sizesJson; ?>')">
+                                                <button type="button" class="btn-edit" data-product="<?php echo $productJson; ?>">
                                                     <i class="fa-solid fa-edit"></i> Edit
                                                 </button>
                                                 <button class="btn-delete" onclick="deleteProduct(<?php echo $product['id']; ?>, '<?php echo htmlspecialchars($product['name']); ?>')">
@@ -693,6 +861,18 @@ $products = $stmt->fetchAll();
                                 <?php endforeach; ?>
                             </tbody>
                         </table>
+                    </div>
+                    <div class="pagination-wrapper">
+                        <div class="pagination-info">
+                            Showing
+                            <?php
+                                $start = $offset + 1;
+                                $end = min($offset + $perPage, $totalProductsCount);
+                                echo $totalProductsCount ? "{$start}-{$end}" : '0';
+                            ?>
+                            of <?php echo number_format($totalProductsCount); ?> product(s)
+                        </div>
+                        <?php include __DIR__ . '/partials/pagination.php'; ?>
                     </div>
                 <?php endif; ?>
             </div>
@@ -825,15 +1005,29 @@ $products = $stmt->fetchAll();
     </div>
     
     <script>
-        // Edit product function
-        function editProduct(id, name, brand, price, category, quantity, description, sizesJson) {
-            document.getElementById('edit_id').value = id;
-            document.getElementById('edit_name').value = name;
-            document.getElementById('edit_brand').value = brand;
-            document.getElementById('edit_price').value = price;
-            document.getElementById('edit_category').value = category;
-            document.getElementById('edit_stock').value = quantity;
-            document.getElementById('edit_description').value = description;
+        // Wire up edit buttons after DOM ready
+        document.querySelectorAll('.btn-edit').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var payload = btn.getAttribute('data-product');
+                if (!payload) return;
+                try {
+                    var product = JSON.parse(payload);
+                    openEditModal(product);
+                } catch (e) {
+                    console.error('Failed to parse product payload', e);
+                }
+            });
+        });
+
+        function openEditModal(product) {
+            if (!product) return;
+            document.getElementById('edit_id').value = product.id || '';
+            document.getElementById('edit_name').value = product.name || '';
+            document.getElementById('edit_brand').value = product.brand || '';
+            document.getElementById('edit_price').value = product.price || '';
+            document.getElementById('edit_category').value = product.category || '';
+            document.getElementById('edit_stock').value = product.quantity || 0;
+            document.getElementById('edit_description').value = product.description || '';
 
             // reset size inputs (shoe)
             document.getElementById('edit_has_sizes').checked = false;
@@ -849,34 +1043,33 @@ $products = $stmt->fetchAll();
             <?php endforeach; ?>
 
             // populate sizes if provided
-            if (sizesJson) {
-                try {
-                    var sizes = JSON.parse(sizesJson);
-                    if (sizes && sizes.length > 0) {
-                        var shoeFound = false;
-                        var apparelFound = false;
-                        sizes.forEach(function(r){
-                            var id = r.size.toString().replace('.','_');
-                            var el = document.getElementById('edit_size_' + id);
-                            if (el) {
-                                el.value = r.stock;
-                                shoeFound = true;
-                            } else {
-                                // try apparel inputs
-                                var el2 = document.getElementById('edit_size_' + r.size);
-                                if (el2) { el2.value = r.stock; apparelFound = true; }
-                            }
-                        });
-                        if (shoeFound) {
-                            document.getElementById('edit_has_sizes').checked = true;
-                            document.getElementById('editSizeInputs').style.display = 'block';
-                        }
-                        if (apparelFound) {
-                            document.getElementById('edit_has_apparel_sizes').checked = true;
-                            document.getElementById('editApparelSizeInputs').style.display = 'block';
-                        }
+            if (Array.isArray(product.sizes) && product.sizes.length > 0) {
+                var shoeFound = false;
+                var apparelFound = false;
+                product.sizes.forEach(function(r){
+                    if (!r || typeof r.size === 'undefined') return;
+                    var key = r.size.toString();
+                    var shoeId = 'edit_size_' + key.replace('.', '_');
+                    var el = document.getElementById(shoeId);
+                    if (el) {
+                        el.value = r.stock || 0;
+                        shoeFound = true;
+                        return;
                     }
-                } catch(e) { /* ignore parse errors */ }
+                    var apparelEl = document.getElementById('edit_size_' + key);
+                    if (apparelEl) {
+                        apparelEl.value = r.stock || 0;
+                        apparelFound = true;
+                    }
+                });
+                if (shoeFound) {
+                    document.getElementById('edit_has_sizes').checked = true;
+                    document.getElementById('editSizeInputs').style.display = 'block';
+                }
+                if (apparelFound) {
+                    document.getElementById('edit_has_apparel_sizes').checked = true;
+                    document.getElementById('editApparelSizeInputs').style.display = 'block';
+                }
             }
 
             document.getElementById('editModal').style.display = 'block';

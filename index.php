@@ -2,22 +2,29 @@
 session_start(); 
 require_once 'includes/db.php';
 
-// Fetch random products from each category for trending products
-$categories = ['Running', 'Fitness & Clothing', 'Football', 'Badminton', 'Tennis', 'Cycling', 'Swimming'];
-$trending_products = [];
+// Fetch curated set of featured products (ensure at least 8 cards when possible)
+$categoryPool = ['Running', 'Fitness & Clothing', 'Football', 'Badminton', 'Tennis', 'Cycling', 'Swimming'];
+$featured_products = [];
 
-foreach ($categories as $category) {
+// Pull up to 2 items per category to keep variety
+foreach ($categoryPool as $category) {
     $stmt = $pdo->prepare('SELECT * FROM products WHERE category = ? ORDER BY RAND() LIMIT 2');
     $stmt->execute([$category]);
-    $category_products = $stmt->fetchAll();
-    $trending_products = array_merge($trending_products, $category_products);
+    $featured_products = array_merge($featured_products, $stmt->fetchAll());
 }
 
-// Shuffle the products to mix categories
-shuffle($trending_products);
+// Fallback fetch to reach at least 8 items if variety request returns fewer
+if (count($featured_products) < 8) {
+    $needed = 8 - count($featured_products);
+    $fallbackStmt = $pdo->prepare('SELECT * FROM products ORDER BY RAND() LIMIT ?');
+    $fallbackStmt->bindValue(1, $needed, PDO::PARAM_INT);
+    $fallbackStmt->execute();
+    $featured_products = array_merge($featured_products, $fallbackStmt->fetchAll());
+}
 
-// Limit to 14 products to match the original design
-$trending_products = array_slice($trending_products, 0, 14);
+// Shuffle and trim to a sensible limit for the grid
+shuffle($featured_products);
+$featured_products = array_slice($featured_products, 0, max(8, min(count($featured_products), 14)));
 
 include('includes/header.php'); 
 ?>
@@ -62,7 +69,7 @@ include('includes/header.php');
 
   <!-- Featured Products -->
   <section class="products">
-    <h2>Trending Products</h2>
+    <h2>Featured Products</h2>
     
     <?php if (isset($_GET['error'])): ?>
       <div style="background: #f8d7da; color: #721c24; padding: 15px; border-radius: 8px; margin-bottom: 20px; text-align: center;">
@@ -79,18 +86,18 @@ include('includes/header.php');
     <?php endif; ?>
     
     <div class="product-grid">
-      <?php if (empty($trending_products)): ?>
+      <?php if (empty($featured_products)): ?>
         <div style="grid-column: 1 / -1; text-align: center; padding: 50px;">
           <h3>No products available</h3>
           <p>Check back later for new arrivals!</p>
         </div>
       <?php else: ?>
-        <?php foreach ($trending_products as $product): ?>
-          <div class="product-card">
+        <?php foreach ($featured_products as $index => $product): ?>
+          <div class="product-card <?php echo $index >= 8 ? 'hidden-card' : ''; ?>">
             <a href="product.php?id=<?php echo (int)$product['id']; ?>" style="text-decoration:none;color:inherit;">
               <div style="position: relative;">
                 <img src="<?php echo $product['image_path'] ?: 'images/trendpro1.jpg'; ?>" alt="<?php echo htmlspecialchars($product['name']); ?>">
-                <div style="position:absolute;top:8px;left:8px;background:#f0c040;color:#000;padding:2px 6px;font-size:12px;border-radius:4px;">Trending</div>
+                <div class="badge">Featured</div>
               </div>
               <p class="brand-name"><?php echo htmlspecialchars($product['brand']); ?></p>
               <h3 class="product-name"><?php echo htmlspecialchars($product['name']); ?></h3>
@@ -98,26 +105,21 @@ include('includes/header.php');
             <div class="price">₹<?php echo number_format($product['price'], 2); ?></div>
             <div class="product-actions">
               <?php if ($product['quantity'] > 0): ?>
-                <form method="post" action="buy_now.php" style="display: inline;">
+                <form method="post" action="buy_now.php" style="display:inline;">
                   <input type="hidden" name="product_id" value="<?php echo $product['id']; ?>">
-                  <button type="submit" name="buy_now" class="btn-buy-now" style="background: #005eb8 !important; color: white !important; border: 2px solid #005eb8 !important; padding: 12px 16px !important; border-radius: 8px !important; cursor: pointer; font-weight: 600; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.5px; width: 100%; min-height: 44px !important; box-sizing: border-box; margin-top: 0 !important; transition: all 0.3s ease;">BUY NOW</button>
+                  <button type="submit" name="buy_now" class="btn-buy-now">BUY NOW</button>
                 </form>
-                <form method="post" action="add_to_cart.php" style="display: inline;">
+                <form method="post" action="add_to_cart.php" style="display:inline;">
                   <input type="hidden" name="product_id" value="<?php echo $product['id']; ?>">
                   <button type="submit" name="add_to_cart" class="btn-add-cart">ADD TO CART</button>
                 </form>
-                <form method="post" action="add_to_wishlist.php" style="display: inline;">
-                  <input type="hidden" name="product_id" value="<?php echo $product['id']; ?>">
-                  <button type="submit" name="add_to_wishlist" class="btn-wishlist">WISHLIST</button>
-                </form>
               <?php else: ?>
-                <button class="btn-buy-now" disabled style="opacity: 0.5; cursor: not-allowed;">OUT OF STOCK</button>
-                <button class="btn-add-cart" disabled style="opacity: 0.5; cursor: not-allowed;">OUT OF STOCK</button>
-                <form method="post" action="add_to_wishlist.php" style="display: inline;">
-                  <input type="hidden" name="product_id" value="<?php echo $product['id']; ?>">
-                  <button type="submit" name="add_to_wishlist" class="btn-wishlist">WISHLIST</button>
-                </form>
+                <button class="btn-buy-now" disabled>OUT OF STOCK</button>
               <?php endif; ?>
+              <form method="post" action="add_to_wishlist.php" style="display:inline;">
+                <input type="hidden" name="product_id" value="<?php echo $product['id']; ?>">
+                <button type="submit" name="add_to_wishlist" class="btn-wishlist">WISHLIST</button>
+              </form>
             </div>
           </div>
         <?php endforeach; ?>

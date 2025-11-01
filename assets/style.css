@@ -735,9 +735,9 @@ header .nav-icons {
 /* Force Buy Now button styling - highest specificity */
 main .page-container .products .product-grid .product-card .product-actions form button.btn-buy-now,
 .product-card .product-actions form button.btn-buy-now {
-  background: #28a745 !important;
+  background: #005eb8 !important;
   color: white !important;
-  border: 2px solid #28a745 !important;
+  border: 2px solid #005eb8 !important;
   padding: 12px 16px !important;
   border-radius: 8px !important;
   cursor: pointer;
@@ -758,10 +758,20 @@ main .page-container .products .product-grid .product-card .product-actions form
 
 main .page-container .products .product-grid .product-card .product-actions form button.btn-buy-now:hover,
 .product-card .product-actions form button.btn-buy-now:hover {
-  background: #218838 !important;
-  border-color: #218838 !important;
+  background: #004a94 !important;
+  border-color: #004a94 !important;
   transform: translateY(-3px) scale(1.02);
-  box-shadow: 0 6px 20px rgba(40, 167, 69, 0.4);
+  box-shadow: 0 6px 20px rgba(0, 94, 184, 0.4);
+}
+
+.product-card .product-actions form button.btn-buy-now[disabled],
+.product-card button.btn-buy-now[disabled] {
+  background: #cccccc !important;
+  border-color: #cccccc !important;
+  color: #666 !important;
+  cursor: not-allowed;
+  box-shadow: none !important;
+  transform: none !important;
 }
 
 .hero-gif {
